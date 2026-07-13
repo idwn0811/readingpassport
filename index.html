@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hộ Chiếu Đọc Sách · Reading Passport</title>
+
+<!-- Firebase (tải từ CDN của Google; nếu ngoại tuyến sẽ bỏ qua) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+
+<style>
+  :root{
+    --navy:#17285A; --navy-deep:#0C1636;
+    --gold:#E1B54E; --gold-light:#F6E0A0; --gold-deep:#B08828;
+    --paper:#FBF7EC; --paper-2:#F3ECD9; --line:#E4D9BE;
+    --ink:#22304F; --ink-soft:#5E6577; --ink-faint:#9AA0AE;
+    /* sticker palette — vui, rõ, không chói */
+    --c-coral:#E4572E; --c-teal:#1F9E8E; --c-indigo:#4257B2; --c-plum:#8E44AD;
+    --c-blue:#2D7DD2; --c-green:#2E9E5B; --c-amber:#D99A16; --c-rose:#D94F8A;
+    --serif:'Palatino Linotype','Book Antiqua',Palatino,'Noto Serif',Georgia,serif;
+    --sans:'Segoe UI',system-ui,Roboto,'Helvetica Neue',Arial,sans-serif;
+    --mrz:'OCR B','Courier New',Consolas,monospace;
+    --shadow-lg:0 26px 60px rgba(10,16,40,.5);
+    --shadow-md:0 10px 26px rgba(20,30,60,.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;min-height:100%;}
+  body{
+    font-family:var(--sans); color:var(--ink);
+    background:
+      radial-gradient(1300px 700px at 12% -10%, #26386f 0%, transparent 55%),
+      radial-gradient(1200px 800px at 110% 115%, #0a1230 0%, transparent 50%),
+      #0f1a3d;
+    display:flex; flex-direction:column; align-items:center; padding:22px 14px 40px;
+  }
+  h1,h2,h3,h4{font-family:var(--serif); margin:0; font-weight:600; color:var(--ink);}
+  p{margin:0; line-height:1.6; color:var(--ink-soft);}
+  button{font-family:inherit;}
+  input,select,textarea{font-family:var(--sans);}
+  .eyebrow{font-family:var(--mrz); font-size:11px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--gold-deep);}
+
+  /* ===== MODE + STATUS BAR ===== */
+  .topbar{display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap; justify-content:center;}
+  .modebar{display:flex; gap:5px; background:rgba(0,0,0,.28); border:1px solid rgba(225,181,78,.35); padding:5px; border-radius:999px;}
+  .mode-btn{background:none; border:none; color:#c3cbe0; padding:7px 13px; border-radius:999px; cursor:pointer; font-size:12.5px; font-weight:600; transition:.2s;}
+  .mode-btn.active{background:var(--gold); color:var(--navy-deep);}
+  .sync-pill{display:flex; gap:7px; align-items:center; background:rgba(0,0,0,.28); border:1px solid rgba(225,181,78,.3); border-radius:999px; padding:7px 13px; font-size:12px; color:#cdd4e6;}
+  .dot{width:8px; height:8px; border-radius:50%; background:#8a91a3;}
+  .dot.on{background:#39c07a; box-shadow:0 0 8px #39c07a;}
+
+  /* ===== BOOK ===== */
+  .stage{width:100%; display:flex; justify-content:center;}
+  .book{
+    position:relative; width:100%; max-width:840px; min-height:600px;
+    background:var(--paper); border-radius:16px; box-shadow:var(--shadow-lg); overflow:hidden;
+  }
+  .book::before{content:""; position:absolute; inset:0; z-index:0; pointer-events:none; opacity:.5;
+    background-image:
+      repeating-radial-gradient(circle at 28% 34%, rgba(66,87,178,.045) 0 1px, transparent 1px 9px),
+      repeating-radial-gradient(circle at 74% 68%, rgba(225,181,78,.05) 0 1px, transparent 1px 11px);}
+
+  .leaf{display:none; position:relative; z-index:1; padding:30px 32px 26px; animation:flip .4s ease;}
+  .leaf.active{display:block;}
+  @keyframes flip{from{opacity:0; transform:rotateY(-6deg) translateX(10px);} to{opacity:1; transform:none;}}
+
+  /* stepper dots */
+  .stepper{display:flex; gap:7px; justify-content:center; padding:14px 0 4px;}
+  .stepper i{width:8px; height:8px; border-radius:50%; background:var(--line); cursor:pointer; transition:.2s;}
+  .stepper i.on{background:var(--gold); transform:scale(1.25);}
+
+  /* page footer nav (prev/next) */
+  .leaf-nav{display:flex; justify-content:space-between; align-items:center; margin-top:22px; padding-top:14px; border-top:1px solid var(--line);}
+  .leaf-nav .pg{font-family:var(--mrz); font-size:11px; color:var(--ink-faint); letter-spacing:.05em;}
+
+  /* desktop top tabs */
+  .tabs{display:flex; gap:2px; justify-content:center; flex-wrap:wrap; padding:6px; background:var(--paper-2); border-bottom:1px solid var(--line);}
+  .tabs button{background:none; border:none; padding:9px 13px; border-radius:8px; cursor:pointer; font-size:12.5px; font-weight:600; color:var(--ink-soft); display:flex; gap:6px; align-items:center;}
+  .tabs button.active{background:var(--navy); color:var(--gold-light);}
+
+  /* ===== COVER ===== */
+  .cover{
+    text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:600px; margin:-30px -32px -26px; padding:40px 30px;
+    background:radial-gradient(700px 460px at 50% 26%, #274088 0%, transparent 70%), linear-gradient(160deg,var(--navy),var(--navy-deep));
+    position:relative;
+  }
+  .cover::before{content:""; position:absolute; inset:20px; border:1.5px solid var(--gold); border-radius:12px; opacity:.55; pointer-events:none;}
+  .cover > *{position:relative; z-index:1;}
+  .cover .country{font-family:var(--mrz); letter-spacing:.32em; font-size:11px; color:var(--gold-light); opacity:.85; text-transform:uppercase;}
+  .cover .seal-c{width:112px; height:112px; margin:20px 0;}
+  .cover h1{color:var(--gold-light); font-size:34px; letter-spacing:.03em;}
+  .cover .en{font-family:var(--serif); font-style:italic; font-size:16px; color:#dfe6fb; margin-top:2px;}
+  .cover .tag{max-width:320px; font-size:13.5px; color:#c3ccec; font-style:italic; margin:20px 0 26px;}
+
+  /* ===== MESSAGE ===== */
+  .msg{min-height:540px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px;}
+  .msg .qm{font-family:var(--serif); font-size:70px; color:var(--gold); line-height:.6; margin-bottom:10px;}
+  .msg .q1{font-family:var(--serif); font-size:22px; color:var(--ink); max-width:440px; margin-bottom:18px; line-height:1.5;}
+  .msg .q2{font-size:14.5px; color:var(--ink-soft); max-width:400px; line-height:1.7;}
+  .msg .globe{font-size:44px; margin:24px 0 8px;}
+
+  /* ===== PROFILE ===== */
+  .p-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;}
+  .p-head .country{font-family:var(--serif); font-size:15px; color:var(--navy); line-height:1.2; margin-top:3px;}
+  .seal-s{width:56px; height:56px;}
+  .p-body{display:flex; gap:22px; flex-wrap:wrap;}
+  .photo{
+    width:118px; height:150px; flex-shrink:0; border-radius:6px; background:var(--paper);
+    border:1px solid var(--gold-deep); box-shadow:inset 0 0 0 4px var(--paper), inset 0 0 0 5px rgba(176,136,40,.4);
+    display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:pointer;
+  }
+  .photo img{width:100%; height:100%; object-fit:cover;}
+  .photo .ph{font-size:12px; color:var(--ink-faint); text-align:center; padding:10px; line-height:1.5;}
+  .photo:hover .ph{color:var(--navy);}
+  .p-fields{flex:1; min-width:220px;}
+  .fld{margin-bottom:16px;}
+  .fld label{display:block; font-family:var(--sans); font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:5px;}
+  .fld input{width:100%; border:none; border-bottom:2px solid var(--line); background:transparent; padding:6px 0; font-family:var(--sans); font-size:18px; color:var(--ink); font-weight:700;}
+  .fld input::placeholder{font-weight:400; color:var(--ink-faint);}
+  .fld input:focus{outline:none; border-color:var(--gold);}
+  .fld .static{font-family:var(--mrz); font-size:17px; font-weight:700; color:var(--navy); letter-spacing:.03em; padding:6px 0;}
+  .goal-row{display:flex; gap:18px; align-items:center; margin-top:6px; padding-top:16px; border-top:1px solid var(--line);}
+  .ring{width:88px; height:88px; flex-shrink:0;}
+  .goal-info .gc{font-family:var(--serif); font-size:22px; font-weight:700; color:var(--ink);}
+  .goal-info .gl{font-size:12.5px; color:var(--ink-soft);}
+  .goal-info .fld{margin-top:8px; margin-bottom:0;}
+  .goal-info .fld input{font-size:15px; width:80px;}
+  .mrz-wrap{margin-top:20px;}
+  .mrz-strip{background:var(--paper); border-top:2px solid var(--ink); padding:9px 11px; border-radius:2px;
+    font-family:var(--mrz); font-size:13.5px; font-weight:600; letter-spacing:.12em; color:var(--ink); line-height:2; word-break:break-all;}
+  .mrz-strip .caret{color:var(--ink-faint);}
+
+  /* ===== STAMPS (bigger & clearer) ===== */
+  .p-title{margin-bottom:14px;}
+  .p-title h2{font-size:22px; margin-top:3px;}
+  .p-title .d{font-size:13px; margin-top:3px;}
+  .stamp-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:18px;}
+  .stamp{position:relative; border-radius:14px; padding:16px 10px 12px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:8px;}
+  .stamp.filled{
+    background:var(--paper); border:2px solid var(--sc); box-shadow:var(--shadow-md);
+    animation:pop .4s cubic-bezier(.2,1.5,.4,1);
+  }
+  .stamp.filled::after{content:""; position:absolute; inset:5px; border:1.5px dashed var(--sc); border-radius:10px; opacity:.4;}
+  .stamp .badge{
+    width:74px; height:74px; border-radius:50%; background:var(--sc); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:38px;
+    box-shadow:0 6px 14px rgba(0,0,0,.18); position:relative; z-index:1;
+    transform:rotate(var(--rot,-5deg));
+  }
+  .stamp .g-name{font-weight:700; font-size:14px; color:var(--ink); line-height:1.25; z-index:1;}
+  .stamp .g-sub{font-family:var(--mrz); font-size:10.5px; font-weight:600; color:var(--ink-soft); letter-spacing:.03em; z-index:1;}
+  @keyframes pop{0%{transform:scale(1.5) rotate(-16deg); opacity:0;}60%{transform:scale(.95); opacity:1;}100%{transform:scale(1);}}
+  .stamp.empty{border:2px dashed var(--line); border-radius:14px; min-height:150px; display:flex; align-items:center; justify-content:center; color:var(--ink-faint);}
+  .stamp.empty .plus{font-size:26px; opacity:.5;}
+  .stamps-empty{grid-column:1/-1; text-align:center; color:var(--ink-faint); font-size:13.5px; padding:40px 12px; border:2px dashed var(--line); border-radius:14px;}
+
+  /* ===== LOG ===== */
+  .log-form{background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:16px; box-shadow:var(--shadow-md);}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .ff{margin-bottom:13px;}
+  .ff label{display:block; font-family:var(--sans); font-size:11px; font-weight:700; letter-spacing:.02em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:5px;}
+  .ff input,.ff select,.ff textarea{width:100%; border:1px solid var(--line); border-radius:9px; background:#fff; padding:9px 11px; font-size:14px; color:var(--ink);}
+  .ff textarea{min-height:60px; resize:vertical; font-family:var(--serif);}
+  .ff input:focus,.ff select:focus,.ff textarea:focus{outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(225,181,78,.18);}
+  .stars{display:flex; gap:6px; font-size:26px;}
+  .stars span{cursor:pointer; opacity:.28; transition:.15s;}
+  .stars span.on{opacity:1; transform:scale(1.08);}
+  .icon-pick{display:flex; gap:8px; margin-top:6px;}
+  .icon-pick button{border:1px solid var(--line); background:#fff; border-radius:8px; padding:5px 12px; cursor:pointer; font-size:18px;}
+  .icon-pick button.on{border-color:var(--gold); background:var(--paper-2);}
+  .log-entry{border:1px solid var(--line); border-left:4px solid var(--sc,var(--gold)); border-radius:0 12px 12px 0; padding:13px 15px; margin-bottom:11px; background:var(--paper);}
+  .log-entry .top{display:flex; justify-content:space-between; gap:10px; align-items:flex-start;}
+  .log-entry h3{font-size:17px;}
+  .log-entry .meta{font-family:var(--sans); font-size:11.5px; font-weight:600; color:var(--ink-soft); letter-spacing:.01em; margin-top:3px;}
+  .log-entry .rate{font-size:15px; margin:6px 0;}
+  .log-entry .note{font-family:var(--serif); font-style:italic; font-size:13.5px; color:var(--ink-soft);}
+  .del{background:none; border:none; color:var(--c-coral); cursor:pointer; font-size:17px;}
+  .list-empty{text-align:center; color:var(--ink-faint); font-size:13.5px; padding:28px;}
+
+  /* ===== RANK ===== */
+  .rank-badge{display:flex; gap:16px; align-items:center; background:linear-gradient(150deg,var(--navy),var(--navy-deep)); border-radius:14px; padding:18px 20px; color:var(--gold-light); margin-bottom:18px; box-shadow:var(--shadow-md); position:relative; overflow:hidden;}
+  .rank-badge .seal-r{width:64px; height:64px; flex-shrink:0;}
+  .rank-badge .title{font-family:var(--serif); font-size:20px; color:var(--gold-light);}
+  .rank-badge .count{font-family:var(--mrz); font-size:11px; letter-spacing:.05em; color:#e6d8b8;}
+  .tiers{display:flex; flex-direction:column; gap:9px; margin-bottom:8px;}
+  .tier{display:flex; gap:12px; align-items:center; padding:11px 13px; border-radius:11px; background:var(--paper); border:1.5px solid var(--line); font-size:13.5px; color:var(--ink-soft); cursor:pointer;}
+  .tier .tc{font-size:22px;}
+  .tier.done{border-color:var(--c-green); background:rgba(46,158,91,.08); color:#217a45; font-weight:600;}
+  .tier .chk{margin-left:auto; font-size:16px;}
+  .tier .rng{font-family:var(--mrz); font-size:10px; color:var(--ink-faint);}
+  .sec-title{font-size:16px; margin:24px 0 10px; padding-bottom:6px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center;}
+  .period{display:flex; gap:4px;}
+  .period button{border:1px solid var(--line); background:#fff; border-radius:7px; padding:4px 10px; font-size:11.5px; cursor:pointer; color:var(--ink-soft);}
+  .period button.on{background:var(--navy); color:var(--gold-light); border-color:var(--navy);}
+  .lead-note{font-size:11.5px; color:var(--ink-faint); margin-bottom:10px;}
+  .roster-item{display:flex; justify-content:space-between; align-items:center; padding:10px 13px; border-radius:10px; margin-bottom:7px; font-size:13.5px;}
+  .roster-item.me{background:linear-gradient(90deg,rgba(225,181,78,.25),rgba(225,181,78,.06)); font-weight:700; color:var(--ink);}
+  .roster-item.other{background:var(--paper);}
+  .roster-item .rk{font-family:var(--mrz); color:var(--ink-faint); margin-right:9px; min-width:28px; display:inline-block;}
+  .roster-item .medal{margin-left:6px;}
+  .reward-row{display:flex; justify-content:space-between; align-items:center; padding:11px 13px; border-radius:11px; background:var(--paper); border:1px solid var(--line); margin-bottom:8px; font-size:13.5px;}
+
+  /* buttons */
+  .btn{font-weight:600; font-size:13.5px; padding:10px 20px; border-radius:9px; border:1px solid var(--gold-deep); background:transparent; color:var(--navy); cursor:pointer; transition:.2s;}
+  .btn:hover{background:var(--gold); color:var(--navy-deep); border-color:var(--gold);}
+  .btn.solid{background:var(--navy); border-color:var(--navy); color:var(--gold-light);}
+  .btn.solid:hover{background:#1f356f;}
+  .btn.small{padding:7px 14px; font-size:12.5px;}
+  .btn.ghost{border-color:var(--line); color:var(--ink-soft);}
+  .btn.ghost:hover{background:var(--paper-2); color:var(--ink); border-color:var(--line);}
+  .btn:disabled{opacity:.4; cursor:default;}
+
+  /* phone bottom nav */
+  .bottom-nav{display:none;}
+
+  /* ====== LAYOUT MODES ====== */
+  body[data-layout="desktop"] .bottom-nav{display:none;}
+  body[data-layout="desktop"] .tabs{display:flex;}
+
+  body[data-layout="phone"] .book{max-width:404px;}
+  body[data-layout="phone"] .tabs{display:none;}
+  body[data-layout="phone"] .leaf{padding:26px 20px 92px;}
+  body[data-layout="phone"] .cover{margin:-26px -20px -92px; padding:44px 24px;}
+  body[data-layout="phone"] .grid2{grid-template-columns:1fr;}
+  body[data-layout="phone"] .stamp-grid{grid-template-columns:repeat(2,1fr); gap:14px;}
+  body[data-layout="phone"] .bottom-nav{
+    display:flex; position:absolute; left:0; right:0; bottom:0; z-index:20;
+    background:linear-gradient(160deg,#1d2f66,#0e1838); border-top:2px solid var(--gold); border-radius:0 0 16px 16px;
+  }
+  .bottom-nav .bn{display:flex; width:100%;}
+  .bottom-nav button{flex:1; background:none; border:none; color:#c6cfe6; padding:9px 2px 7px; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer;}
+  .bottom-nav button .ic{font-size:18px;}
+  .bottom-nav button .lb{font-size:9px;}
+  .bottom-nav button.active{color:var(--gold-light);}
+
+  /* phone frame preview on wide screens */
+  body.framed .book{max-width:392px; border:11px solid #0a1024; border-radius:38px; box-shadow:var(--shadow-lg),0 0 0 2px #1a2246;}
+
+  @media (max-width:520px){
+    body{padding:14px 8px 30px;}
+    .modebar .mode-btn{padding:6px 10px; font-size:12px;}
+    .cover h1{font-size:27px;}
+    .p-body{gap:16px;}
+  }
+</style>
+</head>
+<body data-layout="desktop">
+
+  <div class="topbar">
+    <div class="modebar">
+      <button class="mode-btn" id="mDesktop" onclick="setMode('desktop')">🖥 Máy tính</button>
+      <button class="mode-btn" id="mPhone" onclick="setMode('phone')">📱 Điện thoại</button>
+      <button class="mode-btn active" id="mAuto" onclick="setMode('auto')">✦ Tự động</button>
+    </div>
+    <div class="sync-pill"><span class="dot" id="syncDot"></span><span id="syncTxt">Ngoại tuyến</span></div>
+  </div>
+
+  <div class="stage">
+    <div class="book" id="book">
+
+      <div class="tabs">
+        <button data-page="cover" onclick="go('cover')">📘 Bìa</button>
+        <button data-page="message" onclick="go('message')">✉️ Thông điệp</button>
+        <button data-page="profile" onclick="go('profile')">🪪 Hồ sơ</button>
+        <button class="active" data-page="stamps" onclick="go('stamps')">🛂 Thị thực</button>
+        <button data-page="log" onclick="go('log')">📖 Nhật ký</button>
+        <button data-page="rank" onclick="go('rank')">🏆 Xếp hạng</button>
+      </div>
+
+      <!-- 1. COVER -->
+      <section class="leaf" data-page="cover">
+        <div class="cover">
+          <div class="country">Cộng Hoà Văn Hoá Đọc</div>
+          <svg class="seal-c" viewBox="0 0 100 100" id="sealCover"></svg>
+          <h1>HỘ CHIẾU ĐỌC SÁCH</h1>
+          <div class="en">Reading Passport</div>
+          <p class="tag">Hành trình khám phá thế giới qua những trang sách</p>
+          <button class="btn solid" onclick="go('message')">Mở hộ chiếu &nbsp;→</button>
+        </div>
+      </section>
+
+      <!-- 2. MESSAGE -->
+      <section class="leaf" data-page="message">
+        <div class="msg">
+          <div class="qm">“</div>
+          <p class="q1">Mỗi cuốn sách mở ra một thế giới mới.</p>
+          <p class="q2">Chào mừng bạn đến với nhật ký hành trình đọc — hãy bay lên và khám phá những khung trời bất tận!</p>
+          <div class="globe">🌍</div>
+          <button class="btn" onclick="go('profile')">Bắt đầu hành trình →</button>
+        </div>
+        <div class="leaf-nav">
+          <button class="btn ghost small" onclick="go('cover')">← Bìa</button>
+          <span class="pg">Trang 2 / 6</span>
+          <button class="btn ghost small" onclick="go('profile')">Hồ sơ →</button>
+        </div>
+      </section>
+
+      <!-- 3. PROFILE -->
+      <section class="leaf" data-page="profile">
+        <div class="p-head">
+          <div><div class="eyebrow">Passport · Hộ chiếu</div><div class="country">Trang thông tin cá nhân</div></div>
+          <svg class="seal-s" viewBox="0 0 100 100" id="sealSmall"></svg>
+        </div>
+        <div class="p-body">
+          <div class="photo" onclick="document.getElementById('avatarInput').click()">
+            <span class="ph" id="avatarHint">📷<br>Chạm để<br>gắn ảnh<br>chân dung</span>
+            <img id="avatarImg" style="display:none" alt="">
+          </div>
+          <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="onAvatar(event)">
+          <div class="p-fields">
+            <div class="fld">
+              <label>Họ tên "Độc giả" / Reader name</label>
+              <input id="pName" placeholder="Nhập họ tên của bạn..." oninput="onProfileEdit()">
+            </div>
+            <div class="fld">
+              <label>Số hộ chiếu / Passport No. (mã định danh)</label>
+              <div class="static" id="pNo">—</div>
+            </div>
+            <div class="fld">
+              <label>Ngày cấp / Ngày bắt đầu hành trình đọc</label>
+              <div class="static" id="pDate">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="goal-row">
+          <svg class="ring" viewBox="0 0 100 100" id="goalRing"></svg>
+          <div class="goal-info">
+            <div class="gc" id="goalCount">0 / 12</div>
+            <div class="gl">Số sách dự kiến chinh phục trong năm</div>
+            <div class="fld">
+              <label>Đặt mục tiêu</label>
+              <input id="pGoal" type="number" min="1" value="12" oninput="onProfileEdit(); renderProgress();">
+            </div>
+          </div>
+        </div>
+        <div class="mrz-wrap">
+          <div class="eyebrow" style="margin-bottom:6px;">Vùng mã máy đọc</div>
+          <div class="mrz-strip" id="mrzStrip"></div>
+        </div>
+        <div class="leaf-nav">
+          <button class="btn ghost small" onclick="go('message')">← Thông điệp</button>
+          <span class="pg">Trang 3 / 6</span>
+          <button class="btn ghost small" onclick="go('stamps')">Thị thực →</button>
+        </div>
+      </section>
+
+      <!-- 4. STAMPS -->
+      <section class="leaf active" data-page="stamps">
+        <div class="p-title">
+          <div class="eyebrow">Trang thị thực &amp; đóng dấu</div>
+          <h2>Sổ Thị Thực</h2>
+          <p class="d">Mỗi cuốn sách hoàn thành = một nhãn dán thể loại được dán vào đây 🎉</p>
+        </div>
+        <div class="stamp-grid" id="stampGrid"></div>
+        <div class="leaf-nav">
+          <button class="btn ghost small" onclick="go('profile')">← Hồ sơ</button>
+          <span class="pg">Trang 4 / 6</span>
+          <button class="btn ghost small" onclick="go('log')">Nhật ký →</button>
+        </div>
+      </section>
+
+      <!-- 5. LOG -->
+      <section class="leaf" data-page="log">
+        <div class="p-title"><div class="eyebrow">Nhật ký hành trình</div><h2>Ghi Dấu Cuốn Sách</h2></div>
+        <div class="log-form">
+          <div class="grid2">
+            <div class="ff"><label>Tên sách</label><input id="fTitle" placeholder="VD: Nhà Giả Kim"></div>
+            <div class="ff"><label>Tác giả</label><input id="fAuthor" placeholder="VD: Paulo Coelho"></div>
+          </div>
+          <div class="grid2">
+            <div class="ff"><label>Thể loại</label>
+              <select id="fGenre"></select>
+            </div>
+            <div class="ff"><label>Quốc gia phát hành</label><input id="fCountry" placeholder="VD: Brazil"></div>
+          </div>
+          <div class="grid2">
+            <div class="ff"><label>Ngày bắt đầu</label><input id="fStart" type="date"></div>
+            <div class="ff"><label>Ngày hoàn thành</label><input id="fEnd" type="date"></div>
+          </div>
+          <div class="ff"><label>Đánh giá (chọn biểu tượng)</label>
+            <div class="icon-pick" id="iconPick">
+              <button data-i="★" class="on" onclick="pickIcon('★')">★</button>
+              <button data-i="📖" onclick="pickIcon('📖')">📖</button>
+              <button data-i="❤️" onclick="pickIcon('❤️')">❤️</button>
+            </div>
+            <div class="stars" id="starPicker" style="margin-top:8px;"></div>
+          </div>
+          <div class="ff"><label>3 điều tâm đắc nhất</label><textarea id="fNote" placeholder="Điều bạn nhớ / học được nhiều nhất..."></textarea></div>
+          <button class="btn solid" onclick="addBook()">🛂 Đóng dấu &amp; lưu</button>
+        </div>
+        <div id="logList"></div>
+        <div class="leaf-nav">
+          <button class="btn ghost small" onclick="go('stamps')">← Thị thực</button>
+          <span class="pg">Trang 5 / 6</span>
+          <button class="btn ghost small" onclick="go('rank')">Xếp hạng →</button>
+        </div>
+      </section>
+
+      <!-- 6. RANK -->
+      <section class="leaf" data-page="rank">
+        <div class="p-title"><div class="eyebrow">Xếp hạng &amp; đổi quà</div><h2>Danh Hiệu &amp; Bảng Vàng</h2></div>
+        <div class="rank-badge">
+          <svg class="seal-r" viewBox="0 0 100 100" id="sealRank"></svg>
+          <div><div class="title" id="rankTitle">Khách du lịch tập sự</div><div class="count" id="rankCount">0 cuốn đã hoàn thành</div></div>
+        </div>
+        <div class="tiers" id="tierList"></div>
+
+        <div class="sec-title"><span>Bảng xếp hạng trực tuyến</span>
+          <span class="period">
+            <button data-p="week" onclick="setPeriod('week')">Tuần</button>
+            <button data-p="month" onclick="setPeriod('month')">Tháng</button>
+            <button data-p="all" class="on" onclick="setPeriod('all')">Tất cả</button>
+          </span>
+        </div>
+        <div class="lead-note" id="leadNote">Bảng xếp hạng hiển thị thứ hạng theo số sách đã đọc.</div>
+        <div id="rosterList"></div>
+
+        <h3 class="sec-title">Kho đổi quà</h3>
+        <div id="rewardsList"></div>
+
+        <div class="leaf-nav">
+          <button class="btn ghost small" onclick="go('log')">← Nhật ký</button>
+          <span class="pg">Trang 6 / 6</span>
+          <button class="btn ghost small" onclick="go('cover')">↺ Về bìa</button>
+        </div>
+      </section>
+
+      <div class="stepper" id="stepper"></div>
+
+      <!-- phone bottom nav -->
+      <nav class="bottom-nav">
+        <div class="bn">
+          <button data-page="cover" onclick="go('cover')"><span class="ic">🏠</span><span class="lb">Bìa</span></button>
+          <button data-page="profile" onclick="go('profile')"><span class="ic">🪪</span><span class="lb">Hồ sơ</span></button>
+          <button class="active" data-page="stamps" onclick="go('stamps')"><span class="ic">🛂</span><span class="lb">Thị thực</span></button>
+          <button data-page="log" onclick="go('log')"><span class="ic">📖</span><span class="lb">Nhật ký</span></button>
+          <button data-page="rank" onclick="go('rank')"><span class="ic">🏆</span><span class="lb">Xếp hạng</span></button>
+        </div>
+      </nav>
+
+    </div>
+  </div>
+
+<script>
+/* ========= ĐIỀN CẤU HÌNH FIREBASE 1 LẦN TRƯỚC KHI PUBLIC LINK =========
+   Sau khi điền đủ (nhất là databaseURL), mọi học sinh mở link sẽ tự động
+   dùng chung một bảng xếp hạng trực tuyến. Để trống = chỉ chạy ngoại tuyến. */
+const FIREBASE_CONFIG = {
+  apiKey: "",
+  authDomain: "",
+  databaseURL: "",   // ví dụ: https://ten-du-an-default-rtdb.firebaseio.com
+  projectId: ""
+};
+/* ===================================================================== */
+
+/* ---------- SEAL ---------- */
+function sealSVG(id){return `
+  <defs>
+    <path id="st-${id}" d="M50,50 m-38,0 a38,38 0 1,1 76,0" fill="none"/>
+    <path id="sb-${id}" d="M50,50 m38,0 a38,38 0 1,1 -76,0" fill="none"/>
+  </defs>
+  <circle cx="50" cy="50" r="46" fill="none" stroke="var(--gold)" stroke-width="1.4"/>
+  <circle cx="50" cy="50" r="41" fill="none" stroke="var(--gold)" stroke-width="0.6"/>
+  <circle cx="50" cy="50" r="27" fill="none" stroke="var(--gold)" stroke-width="0.8"/>
+  <text font-family="var(--mrz)" font-size="6.2" letter-spacing="2.2" fill="var(--gold)"><textPath href="#st-${id}" startOffset="50%" text-anchor="middle">REPUBLIC OF READING</textPath></text>
+  <text font-family="var(--mrz)" font-size="6.2" letter-spacing="2" fill="var(--gold)"><textPath href="#sb-${id}" startOffset="50%" text-anchor="middle">★ VĂN HOÁ ĐỌC ★</textPath></text>
+  <path d="M36 40 Q50 34 64 40 L64 62 Q50 56 36 62 Z" fill="none" stroke="var(--gold)" stroke-width="1.3"/>
+  <path d="M50 34 Q44 37 44 40 L44 60 Q47 57 50 58 Z" fill="var(--gold)" opacity=".9"/>
+  <path d="M50 34 Q56 37 56 40 L56 60 Q53 57 50 58 Z" fill="var(--gold)" opacity=".62"/>`;}
+['sealCover','sealSmall','sealRank'].forEach(id=>{const e=document.getElementById(id); if(e)e.innerHTML=sealSVG(id);});
+
+/* ---------- DATA ---------- */
+const GENRE = {
+  "Truyện tranh":{ic:"💥", c:"var(--c-coral)", sub:"COMIC"},
+  "Viễn tưởng, kỳ ảo":{ic:"🐉", c:"var(--c-plum)", sub:"FANTASY"},
+  "Trinh thám, phiêu lưu":{ic:"🔍", c:"var(--c-indigo)", sub:"MYSTERY"},
+  "Văn học":{ic:"📖", c:"var(--c-teal)", sub:"LITERATURE"},
+  "Khoa học, khám phá, lịch sử":{ic:"🔭", c:"var(--c-blue)", sub:"SCIENCE"},
+  "Kỹ năng sống":{ic:"🌱", c:"var(--c-green)", sub:"LIFE SKILL"},
+  "Sách học tập":{ic:"🎓", c:"var(--c-amber)", sub:"STUDY"},
+  "Khác":{ic:"✨", c:"var(--c-rose)", sub:"OTHER"}
+};
+const TIERS = [
+  {min:1,max:5,title:"Khách du lịch tập sự",ic:"🧳"},
+  {min:6,max:15,title:"Nhà thám hiểm tri thức",ic:"🧭"},
+  {min:16,max:Infinity,title:"Đại sứ văn hoá đọc",ic:"🏛️"}
+];
+const REWARDS = [
+  {name:"Bookmark thiết kế riêng", cost:2},
+  {name:"Bộ dụng cụ học tập", cost:5},
+  {name:"Quyền mượn thêm 1 sách VIP", cost:8},
+  {name:"Vé mời buổi giao lưu CLB Sách", cost:12}
+];
+const KEY="readingPassportKids_v1";
+let state=load();
+function load(){
+  try{const r=localStorage.getItem(KEY); if(r) return JSON.parse(r);}catch(e){}
+  return {uid:uid(), profile:{name:"",avatar:"",no:genNo(),date:today(),goal:12,icon:"★"}, books:[], redeemed:0};
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+function uid(){return 'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+function genNo(){return "RP"+Math.floor(1000000+Math.random()*8999999);}
+function today(){return new Date().toLocaleDateString('vi-VN');}
+
+/* populate genre select */
+(function(){const s=document.getElementById('fGenre'); Object.keys(GENRE).forEach(g=>{const o=document.createElement('option'); o.textContent=g; s.appendChild(o);});})();
+
+/* ---------- MODE ---------- */
+let mode='auto';
+function setMode(m){
+  mode=m;
+  ['mDesktop','mPhone','mAuto'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  document.getElementById({desktop:'mDesktop',phone:'mPhone',auto:'mAuto'}[m]).classList.add('active');
+  applyLayout();
+}
+function applyLayout(){
+  const wide=window.innerWidth>=820;
+  let layout = mode==='desktop'?'desktop': mode==='phone'?'phone': (wide?'desktop':'phone');
+  document.body.dataset.layout=layout;
+  document.body.classList.toggle('framed', mode==='phone'&&wide);
+  renderStamps();
+}
+window.addEventListener('resize',()=>{if(mode==='auto')applyLayout();});
+
+/* ---------- PAGE NAV ---------- */
+const PAGES=['cover','message','profile','stamps','log','rank'];
+let page='stamps';
+function go(p){
+  page=p;
+  document.querySelectorAll('.leaf').forEach(l=>l.classList.toggle('active', l.dataset.page===p));
+  document.querySelectorAll('.tabs button, .bottom-nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===p));
+  renderStepper();
+  const book=document.getElementById('book'); if(book) book.scrollIntoView({block:'nearest'});
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function renderStepper(){
+  const s=document.getElementById('stepper'); s.innerHTML="";
+  PAGES.forEach(p=>{const i=document.createElement('i'); i.className=(p===page?'on':''); i.title=p; i.onclick=()=>go(p); s.appendChild(i);});
+}
+
+/* ---------- PROFILE ---------- */
+function initProfile(){
+  document.getElementById('pName').value=state.profile.name||"";
+  document.getElementById('pNo').textContent=state.profile.no;
+  document.getElementById('pDate').textContent=state.profile.date;
+  document.getElementById('pGoal').value=state.profile.goal||12;
+  if(state.profile.avatar){const im=document.getElementById('avatarImg'); im.src=state.profile.avatar; im.style.display='block'; document.getElementById('avatarHint').style.display='none';}
+}
+let pushTimer=null;
+function onProfileEdit(){
+  state.profile.name=document.getElementById('pName').value;
+  state.profile.goal=parseInt(document.getElementById('pGoal').value)||1;
+  save(); renderMrz();
+  clearTimeout(pushTimer); pushTimer=setTimeout(pushMe,600);
+}
+function onAvatar(e){const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{state.profile.avatar=ev.target.result; save(); initProfile();}; r.readAsDataURL(f);}
+function renderProgress(){
+  const goal=state.profile.goal||1, n=state.books.length, pct=Math.min(1,n/goal);
+  const r=40,c=2*Math.PI*r;
+  document.getElementById('goalRing').innerHTML=`
+    <circle cx="50" cy="50" r="${r}" fill="none" stroke="var(--line)" stroke-width="9"/>
+    <circle cx="50" cy="50" r="${r}" fill="none" stroke="var(--gold)" stroke-width="9" stroke-linecap="round"
+      stroke-dasharray="${c}" stroke-dashoffset="${c*(1-pct)}" transform="rotate(-90 50 50)" style="transition:stroke-dashoffset .5s"/>
+    <text x="50" y="56" text-anchor="middle" font-family="var(--serif)" font-size="23" font-weight="700" fill="var(--ink)">${Math.round(pct*100)}%</text>`;
+  document.getElementById('goalCount').textContent=n+" / "+goal;
+}
+function noDia(s){return (s||"").normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D');}
+function pad(s,n){s=noDia(s).toUpperCase().replace(/[^A-Z0-9< ]/g,'').replace(/ /g,'<'); while(s.length<n)s+='<'; return s.slice(0,n);}
+function renderMrz(){
+  const name=pad(state.profile.name||"DOC GIA",28);
+  const l1="P<VNM"+name;
+  const l2=pad(state.profile.no,10)+"VNM<"+pad(String(state.books.length).padStart(3,'0'),4)+pad(currentTier().title,14);
+  document.getElementById('mrzStrip').innerHTML=carets(l1)+"<br>"+carets(l2);
+}
+function carets(s){return s.replace(/</g,'<span class="caret">&lt;</span>');}
+
+/* ---------- STAMPS ---------- */
+function renderStamps(){
+  const grid=document.getElementById('stampGrid');
+  const perRow = document.body.dataset.layout==='phone'?2:3;
+  const minCells = perRow*3;
+  grid.innerHTML="";
+  if(!state.books.length){
+    grid.innerHTML='<div class="stamps-empty">Chưa có nhãn dán nào 🗺️<br>Hãy hoàn thành cuốn sách đầu tiên ở trang <b>Nhật ký</b> để nhận con dấu!</div>';
+    return;
+  }
+  state.books.slice().reverse().forEach((b,i)=>{
+    const g=GENRE[b.genre]||GENRE["Khác"];
+    const rot=(i%2?5:-5)+(i*3%7);
+    const d=document.createElement('div'); d.className='stamp filled'; d.style.setProperty('--sc',g.c);
+    d.title=b.title;
+    d.innerHTML=`<div class="badge" style="--rot:${rot}deg">${g.ic}</div>
+      <div class="g-name">${b.genre}</div>
+      <div class="g-sub">${g.sub}${b.country?' · '+esc(b.country.toUpperCase()):''}</div>`;
+    grid.appendChild(d);
+  });
+  for(let i=state.books.length;i<minCells;i++){const e=document.createElement('div'); e.className='stamp empty'; e.innerHTML='<span class="plus">+</span>'; grid.appendChild(e);}
+}
+
+/* ---------- LOG ---------- */
+let rating=0;
+function pickIcon(ic){state.profile.icon=ic; save(); document.querySelectorAll('#iconPick button').forEach(b=>b.classList.toggle('on',b.dataset.i===ic)); initStars();}
+function initStars(){const w=document.getElementById('starPicker'); w.innerHTML=""; const ic=state.profile.icon||"★"; for(let i=1;i<=5;i++){const s=document.createElement('span'); s.textContent=ic; s.dataset.v=i; s.onclick=()=>{rating=i; paintStars();}; w.appendChild(s);} paintStars();}
+function paintStars(){document.querySelectorAll('#starPicker span').forEach(s=>s.classList.toggle('on',+s.dataset.v<=rating));}
+function addBook(){
+  const t=document.getElementById('fTitle').value.trim();
+  if(!t){alert('Vui lòng nhập tên sách.'); return;}
+  state.books.push({id:Date.now(), title:t, author:document.getElementById('fAuthor').value.trim(), genre:document.getElementById('fGenre').value, country:document.getElementById('fCountry').value.trim(), start:document.getElementById('fStart').value, end:document.getElementById('fEnd').value, rating:rating||5, icon:state.profile.icon||"★", note:document.getElementById('fNote').value.trim()});
+  save();
+  ['fTitle','fAuthor','fCountry','fStart','fEnd','fNote'].forEach(id=>document.getElementById(id).value='');
+  rating=0; paintStars(); renderAll(); pushMe(); go('stamps');
+}
+function delBook(id){if(!confirm('Xoá cuốn sách này?'))return; state.books=state.books.filter(b=>b.id!==id); save(); renderAll(); pushMe();}
+function renderLog(){
+  const w=document.getElementById('logList'); w.innerHTML="";
+  if(!state.books.length){w.innerHTML='<div class="list-empty">Chưa có cuốn sách nào được ghi lại.</div>'; return;}
+  state.books.slice().reverse().forEach(b=>{
+    const g=GENRE[b.genre]||GENRE["Khác"]; const ic=b.icon||"★";
+    const d=document.createElement('div'); d.className='log-entry'; d.style.setProperty('--sc',g.c);
+    d.innerHTML=`<div class="top"><div>
+        <h3>${esc(b.title)}</h3>
+        <div class="meta">${esc((b.author||"—").toUpperCase())} · ${g.sub} · ${esc((b.country||"—").toUpperCase())}</div>
+        <div class="meta">${b.start||"?"} → ${b.end||"?"}</div></div>
+        <button class="del" onclick="delBook(${b.id})">✕</button></div>
+      <div class="rate">${ic.repeat(b.rating)}<span style="opacity:.25">${ic.repeat(5-b.rating)}</span></div>
+      ${b.note?'<div class="note">“'+esc(b.note)+'”</div>':''}`;
+    w.appendChild(d);
+  });
+}
+
+/* ---------- RANK ---------- */
+function currentTier(){const c=state.books.length; return TIERS.find(t=>c>=t.min&&c<=t.max)||TIERS[0];}
+function renderRank(){
+  const c=state.books.length, t=currentTier();
+  document.getElementById('rankTitle').textContent=t.title;
+  document.getElementById('rankCount').textContent=c+" cuốn đã hoàn thành";
+  const tl=document.getElementById('tierList'); tl.innerHTML="";
+  TIERS.forEach(x=>{const done=c>=x.min; const d=document.createElement('div'); d.className='tier'+(done?' done':'');
+    d.innerHTML=`<span class="tc">${x.ic}</span><span>${x.title} <span class="rng">(${x.max===Infinity?x.min+'+':x.min+'–'+x.max} cuốn)</span></span><span class="chk">${done?'☑':'☐'}</span>`;
+    tl.appendChild(d);});
+  renderRoster(); renderRewards();
+}
+let period='all';
+function setPeriod(p){period=p; document.querySelectorAll('.period button').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); renderRoster();}
+function withinPeriod(ts){if(period==='all'||!ts)return true; const days=period==='week'?7:30; return (Date.now()-ts) <= days*86400000;}
+function renderRoster(){
+  const w=document.getElementById('rosterList');
+  let list;
+  if(online && remoteList.length){
+    list=remoteList.filter(r=>withinPeriod(r.updated)).map(r=>({name:r.name||"Ẩn danh", count:r.count||0, me:r.id===state.uid}));
+    // đảm bảo có mình
+    if(!list.some(r=>r.me)) list.push({name:(state.profile.name||"Bạn")+" (bạn)", count:state.books.length, me:true});
+  }else{
+    list=[{name:(state.profile.name||"Bạn")+" (bạn)", count:state.books.length, me:true}];
+  }
+  list.sort((a,b)=>b.count-a.count);
+  const medals=['🥇','🥈','🥉'];
+  w.innerHTML=list.slice(0,50).map((r,i)=>`<div class="roster-item ${r.me?'me':'other'}"><span><span class="rk">#${i+1}</span>${esc(r.name)}${medals[i]?'<span class="medal">'+medals[i]+'</span>':''}</span><span>${r.count} cuốn</span></div>`).join('') || '<div class="list-empty">Chưa có dữ liệu.</div>';
+}
+function renderRewards(){
+  const w=document.getElementById('rewardsList'); const pts=state.books.length-(state.redeemed||0);
+  w.innerHTML=`<p style="font-size:12.5px; margin-bottom:8px;">Điểm khả dụng: <b style="color:var(--navy)">${pts}</b> (mỗi con dấu = 1 điểm)</p>`;
+  REWARDS.forEach(r=>{const can=pts>=r.cost; const row=document.createElement('div'); row.className='reward-row';
+    row.innerHTML=`<span>${r.name} <span style="color:var(--ink-faint)">· ${r.cost} điểm</span></span>`;
+    const b=document.createElement('button'); b.className='btn small '+(can?'solid':'ghost'); b.textContent=can?'Đổi':'Chưa đủ'; b.disabled=!can;
+    b.onclick=()=>{if(!can)return; state.redeemed=(state.redeemed||0)+r.cost; save(); renderRewards(); alert('Đã đổi: '+r.name+'! Liên hệ thư viện để nhận quà.');};
+    row.appendChild(b); w.appendChild(row);});
+}
+
+/* ---------- ONLINE (Firebase) — cấu hình điền sẵn trong FIREBASE_CONFIG ---------- */
+let online=false, db=null, remoteList=[];
+function initOnline(){
+  const cfg=FIREBASE_CONFIG;
+  if(!cfg || !cfg.databaseURL){setSync(false,'Ngoại tuyến'); return;}
+  if(typeof firebase==='undefined'){setSync(false,'Ngoại tuyến'); return;}
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(cfg);
+    db=firebase.database(); online=true;
+    setSync(true,'Trực tuyến');
+    document.getElementById('leadNote').textContent='Bảng xếp hạng đồng bộ trực tuyến — thi đua cùng cả trường! (chỉ chia sẻ tên + số sách + danh hiệu)';
+    db.ref('passports').on('value', snap=>{const v=snap.val()||{}; remoteList=Object.entries(v).map(([id,d])=>({id,...d})); renderRoster();});
+    pushMe();
+  }catch(e){console.warn(e); setSync(false,'Ngoại tuyến'); online=false;}
+}
+function pushMe(){
+  if(!online||!db)return;
+  const name=(state.profile.name||'Độc giả ẩn danh').trim();
+  db.ref('passports/'+state.uid).set({name, count:state.books.length, tier:currentTier().title, updated:Date.now()}).catch(e=>console.warn(e));
+}
+function setSync(on,txt){document.getElementById('syncDot').classList.toggle('on',on); document.getElementById('syncTxt').textContent=txt;}
+
+/* ---------- UTIL ---------- */
+function esc(s){return (s||"").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function renderAll(){renderProgress(); renderMrz(); renderStamps(); renderLog(); renderRank();}
+
+/* ---------- INIT ---------- */
+initProfile(); initStars(); renderStepper();
+document.querySelectorAll('#iconPick button').forEach(b=>b.classList.toggle('on',b.dataset.i===(state.profile.icon||"★")));
+applyLayout();
+renderAll();
+go('cover');
+initOnline();
+</script>
+</body>
+</html>
