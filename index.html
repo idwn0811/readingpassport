@@ -92,6 +92,19 @@
   .cover h1{color:var(--gold-light); font-size:34px; letter-spacing:.03em;}
   .cover .en{font-family:var(--serif); font-style:italic; font-size:16px; color:#dfe6fb; margin-top:2px;}
   .cover .tag{max-width:320px; font-size:13.5px; color:#c3ccec; font-style:italic; margin:20px 0 26px;}
+  .cover-btns{display:flex; gap:12px; flex-wrap:wrap; justify-content:center;}
+  .btn.cover-alt{background:transparent; border-color:var(--gold); color:var(--gold-light);}
+  .btn.cover-alt:hover{background:var(--gold); color:var(--navy-deep);}
+
+  /* guide modal */
+  .guide-modal{position:fixed; inset:0; z-index:80; display:none; align-items:center; justify-content:center; background:rgba(8,12,30,.72); padding:20px; backdrop-filter:blur(2px);}
+  .guide-modal.show{display:flex;}
+  .guide-card{background:var(--paper); border-radius:16px; max-width:470px; width:100%; padding:26px; box-shadow:var(--shadow-lg); max-height:86vh; overflow:auto; position:relative;}
+  .guide-close{position:absolute; top:12px; right:14px; background:none; border:none; font-size:20px; color:var(--ink-soft); cursor:pointer; line-height:1;}
+  .guide-step{display:flex; gap:12px; margin-bottom:15px;}
+  .guide-step .n{width:30px; height:30px; border-radius:50%; background:var(--navy); color:var(--gold-light); display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0; font-size:14px;}
+  .guide-step .t b{color:var(--ink); font-size:14.5px;}
+  .guide-step .t p{font-size:13px; margin-top:2px;}
 
   /* ===== MESSAGE ===== */
   .msg{min-height:540px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px;}
@@ -126,10 +139,28 @@
   .goal-info .gl{font-size:12.5px; color:var(--ink-soft);}
   .goal-info .fld{margin-top:8px; margin-bottom:0;}
   .goal-info .fld input{font-size:15px; width:80px;}
-  .mrz-wrap{margin-top:20px;}
-  .mrz-strip{background:var(--paper); border-top:2px solid var(--ink); padding:9px 11px; border-radius:2px;
-    font-family:var(--mrz); font-size:13.5px; font-weight:600; letter-spacing:.12em; color:var(--ink); line-height:2; word-break:break-all;}
-  .mrz-strip .caret{color:var(--ink-faint);}
+  /* gate: đăng nhập / tạo mới */
+  .gate-tabs{display:flex; gap:8px; margin:16px 0 16px;}
+  .gate-tabs button{flex:1; padding:12px; border:2px solid var(--line); background:var(--paper); border-radius:11px; cursor:pointer; font-weight:700; color:var(--ink-soft); font-size:14.5px;}
+  .gate-tabs button.on{border-color:var(--gold); background:var(--paper-2); color:var(--navy);}
+  .gate-card{background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:22px; box-shadow:var(--shadow-md); max-width:440px;}
+  .gate-desc{font-size:14px; margin-bottom:18px; color:var(--ink-soft);}
+  .gate-msg{font-size:13px; margin-top:12px; min-height:18px;}
+  .gate-msg.err{color:var(--c-coral);}
+  .gate-msg.ok{color:var(--c-green);}
+  /* admin */
+  .admin-entry{text-align:center; margin-top:12px;}
+  .admin-link{font-size:12.5px; color:var(--ink-faint); cursor:pointer; text-decoration:underline;}
+  .admin-link:hover{color:var(--navy);}
+  .admin-bar{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px;}
+  .admin-count{font-weight:700; color:var(--navy); font-size:14px; margin-right:auto;}
+  .admin-search{width:100%; border:1px solid var(--line); border-radius:9px; background:#fff; padding:9px 11px; font-size:14px; margin-bottom:14px;}
+  .admin-search:focus{outline:none; border-color:var(--gold);}
+  .admin-row{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:11px 13px; border:1px solid var(--line); border-radius:11px; margin-bottom:8px; background:var(--paper);}
+  .admin-row b{font-size:14.5px; color:var(--ink);}
+  .admin-meta{font-family:var(--mrz); font-size:11px; color:var(--ink-soft); margin-top:2px; letter-spacing:.02em;}
+  .btn-del{border:1px solid var(--c-coral); color:var(--c-coral); background:transparent; border-radius:8px; padding:7px 13px; font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap;}
+  .btn-del:hover{background:var(--c-coral); color:#fff;}
 
   /* ===== STAMPS (bigger & clearer) ===== */
   .p-title{margin-bottom:14px;}
@@ -266,6 +297,7 @@
         <button class="active" data-page="stamps" onclick="go('stamps')">🛂 Thị thực</button>
         <button data-page="log" onclick="go('log')">📖 Nhật ký</button>
         <button data-page="rank" onclick="go('rank')">🏆 Xếp hạng</button>
+        <button class="admin-only" data-page="admin" onclick="go('admin')" style="display:none">🛠️ Quản lý</button>
       </div>
 
       <!-- 1. COVER -->
@@ -276,7 +308,10 @@
           <h1>HỘ CHIẾU ĐỌC SÁCH</h1>
           <div class="en">Reading Passport</div>
           <p class="tag">Hành trình khám phá thế giới qua những trang sách</p>
-          <button class="btn solid" onclick="go('message')">Mở hộ chiếu &nbsp;→</button>
+          <div class="cover-btns">
+            <button class="btn solid" onclick="go('message')">Mở hộ chiếu &nbsp;→</button>
+            <button class="btn cover-alt" onclick="openGuide()">📖 Hướng dẫn sử dụng</button>
+          </div>
         </div>
       </section>
 
@@ -302,42 +337,68 @@
           <div><div class="eyebrow">Passport · Hộ chiếu</div><div class="country">Trang thông tin cá nhân</div></div>
           <svg class="seal-s" viewBox="0 0 100 100" id="sealSmall"></svg>
         </div>
-        <div class="p-body">
-          <div class="photo" onclick="document.getElementById('avatarInput').click()">
-            <span class="ph" id="avatarHint">📷<br>Chạm để<br>gắn ảnh<br>chân dung</span>
-            <img id="avatarImg" style="display:none" alt="">
+
+        <!-- CỔNG: chọn 1 trong 2 -->
+        <div id="gate">
+          <div class="gate-tabs">
+            <button id="gtLogin" class="on" onclick="gateTab('login')">🔑 Đăng nhập</button>
+            <button id="gtNew" onclick="gateTab('new')">✨ Tạo hồ sơ mới</button>
           </div>
-          <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="onAvatar(event)">
-          <div class="p-fields">
-            <div class="fld">
-              <label>Họ tên "Độc giả" / Reader name</label>
-              <input id="pName" placeholder="Nhập họ tên của bạn..." oninput="onProfileEdit()">
-            </div>
-            <div class="fld">
-              <label>Số hộ chiếu / Passport No. (mã định danh)</label>
-              <div class="static" id="pNo">—</div>
-            </div>
-            <div class="fld">
-              <label>Ngày cấp / Ngày bắt đầu hành trình đọc</label>
-              <div class="static" id="pDate">—</div>
-            </div>
+          <div id="gateLogin" class="gate-card">
+            <p class="gate-desc">Đã có hộ chiếu? Nhập <b>số hộ chiếu</b> để lấy lại hành trình đọc của bạn.</p>
+            <div class="fld"><label>Số hộ chiếu</label><input id="loginNo" placeholder="VD: RP1234567" style="text-transform:uppercase" onkeydown="if(event.key==='Enter')loginProfile()"></div>
+            <button class="btn solid" onclick="loginProfile()">Đăng nhập →</button>
+            <div id="loginMsg" class="gate-msg"></div>
+            <div class="admin-entry"><a class="admin-link" onclick="adminLogin()">🔒 Đăng nhập quản trị</a></div>
           </div>
-        </div>
-        <div class="goal-row">
-          <svg class="ring" viewBox="0 0 100 100" id="goalRing"></svg>
-          <div class="goal-info">
-            <div class="gc" id="goalCount">0 / 12</div>
-            <div class="gl">Số sách dự kiến chinh phục trong năm</div>
-            <div class="fld">
-              <label>Đặt mục tiêu</label>
-              <input id="pGoal" type="number" min="1" value="12" oninput="onProfileEdit(); renderProgress();">
-            </div>
+          <div id="gateNew" class="gate-card" style="display:none">
+            <p class="gate-desc">Chưa có? Tạo hộ chiếu mới — bạn sẽ được cấp một <b>số hộ chiếu</b> riêng để đăng nhập lần sau.</p>
+            <div class="fld"><label>Họ tên "Độc giả"</label><input id="newName" placeholder="Nhập họ tên của bạn..."></div>
+            <div class="fld"><label>Mục tiêu số sách trong năm</label><input id="newGoal" type="number" min="1" value="12"></div>
+            <button class="btn solid" onclick="createProfile()">Tạo hộ chiếu ✨</button>
           </div>
         </div>
-        <div class="mrz-wrap">
-          <div class="eyebrow" style="margin-bottom:6px;">Vùng mã máy đọc</div>
-          <div class="mrz-strip" id="mrzStrip"></div>
+
+        <!-- THẺ HỒ SƠ (sau khi đăng nhập) -->
+        <div id="profileCard" style="display:none">
+          <div class="p-body">
+            <div class="photo" onclick="document.getElementById('avatarInput').click()">
+              <span class="ph" id="avatarHint">📷<br>Chạm để<br>gắn ảnh<br>chân dung</span>
+              <img id="avatarImg" style="display:none" alt="">
+            </div>
+            <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="onAvatar(event)">
+            <div class="p-fields">
+              <div class="fld">
+                <label>Họ tên "Độc giả"</label>
+                <input id="pName" placeholder="Nhập họ tên của bạn..." oninput="onProfileEdit()">
+              </div>
+              <div class="fld">
+                <label>Số hộ chiếu (dùng để đăng nhập lần sau)</label>
+                <div class="static" id="pNo">—</div>
+                <button class="btn ghost small" style="margin-top:8px" onclick="copyNo()">📋 Sao chép số</button>
+              </div>
+              <div class="fld">
+                <label>Ngày cấp (ngày bắt đầu hành trình)</label>
+                <div class="static" id="pDate">—</div>
+              </div>
+            </div>
+          </div>
+          <div class="goal-row">
+            <svg class="ring" viewBox="0 0 100 100" id="goalRing"></svg>
+            <div class="goal-info">
+              <div class="gc" id="goalCount">0 / 12</div>
+              <div class="gl">Số sách dự kiến chinh phục trong năm</div>
+              <div class="fld">
+                <label>Đặt mục tiêu</label>
+                <input id="pGoal" type="number" min="1" value="12" oninput="onProfileEdit(); renderProgress();">
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:20px">
+            <button class="btn ghost small" onclick="logout()">↩ Đăng xuất / Đổi hồ sơ khác</button>
+          </div>
         </div>
+
         <div class="leaf-nav">
           <button class="btn ghost small" onclick="go('message')">← Thông điệp</button>
           <span class="pg">Trang 3 / 6</span>
@@ -375,8 +436,8 @@
             <div class="ff"><label>Quốc gia phát hành</label><input id="fCountry" placeholder="VD: Brazil"></div>
           </div>
           <div class="grid2">
-            <div class="ff"><label>Ngày bắt đầu</label><input id="fStart" type="date"></div>
-            <div class="ff"><label>Ngày hoàn thành</label><input id="fEnd" type="date"></div>
+            <div class="ff"><label>Ngày bắt đầu</label><input id="fStart" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" oninput="maskDate(this)"></div>
+            <div class="ff"><label>Ngày hoàn thành</label><input id="fEnd" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" oninput="maskDate(this)"></div>
           </div>
           <div class="ff"><label>Đánh giá (chọn biểu tượng)</label>
             <div class="icon-pick" id="iconPick">
@@ -426,6 +487,27 @@
         </div>
       </section>
 
+      <!-- QUẢN LÝ (chỉ admin) -->
+      <section class="leaf" data-page="admin">
+        <div class="p-title">
+          <div class="eyebrow">Khu vực quản trị</div>
+          <h2>Quản Lý Hộ Chiếu 🛠️</h2>
+          <p class="d">Xem và xóa hồ sơ học sinh trong hệ thống.</p>
+        </div>
+        <div class="admin-bar">
+          <span id="adminCount" class="admin-count">0 hồ sơ</span>
+          <button class="btn ghost small" onclick="renderAdmin()">↻ Làm mới</button>
+          <button class="btn ghost small" onclick="adminLogout()">↩ Thoát quản trị</button>
+        </div>
+        <input id="adminSearch" class="admin-search" placeholder="Tìm theo tên hoặc số hộ chiếu..." oninput="renderAdmin()">
+        <div id="adminList"></div>
+        <div class="leaf-nav">
+          <button class="btn ghost small" onclick="go('rank')">← Xếp hạng</button>
+          <span class="pg">Trang quản trị</span>
+          <button class="btn ghost small" onclick="go('cover')">↺ Về bìa</button>
+        </div>
+      </section>
+
       <div class="stepper" id="stepper"></div>
 
       <!-- phone bottom nav -->
@@ -436,6 +518,7 @@
           <button class="active" data-page="stamps" onclick="go('stamps')"><span class="ic">🛂</span><span class="lb">Thị thực</span></button>
           <button data-page="log" onclick="go('log')"><span class="ic">📖</span><span class="lb">Nhật ký</span></button>
           <button data-page="rank" onclick="go('rank')"><span class="ic">🏆</span><span class="lb">Xếp hạng</span></button>
+          <button class="admin-only" data-page="admin" onclick="go('admin')" style="display:none"><span class="ic">🛠️</span><span class="lb">Quản lý</span></button>
         </div>
       </nav>
 
@@ -443,14 +526,16 @@
   </div>
 
 <script>
-/* ========= ĐIỀN CẤU HÌNH FIREBASE 1 LẦN TRƯỚC KHI PUBLIC LINK =========
-   Sau khi điền đủ (nhất là databaseURL), mọi học sinh mở link sẽ tự động
-   dùng chung một bảng xếp hạng trực tuyến. Để trống = chỉ chạy ngoại tuyến. */
+/* ========= CẤU HÌNH FIREBASE (đã điền sẵn — public link là chạy) ========= */
 const FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  databaseURL: "",   // ví dụ: https://ten-du-an-default-rtdb.firebaseio.com
-  projectId: ""
+  apiKey: "AIzaSyAiZz6SdpkxtBdBfnhhrEMRpupLEvja0U4",
+  authDomain: "readingpassport-c8940.firebaseapp.com",
+  databaseURL: "https://readingpassport-c8940-default-rtdb.firebaseio.com",
+  projectId: "readingpassport-c8940",
+  storageBucket: "readingpassport-c8940.firebasestorage.app",
+  messagingSenderId: "117564185476",
+  appId: "1:117564185476:web:38bbcffc23bf5f140e5bd1",
+  measurementId: "G-DVC535G2G3"
 };
 /* ===================================================================== */
 
@@ -487,21 +572,41 @@ const TIERS = [
   {min:16,max:Infinity,title:"Đại sứ văn hoá đọc",ic:"🏛️"}
 ];
 const REWARDS = [
-  {name:"Bookmark thiết kế riêng", cost:2},
-  {name:"Bộ dụng cụ học tập", cost:5},
-  {name:"Quyền mượn thêm 1 sách VIP", cost:8},
-  {name:"Vé mời buổi giao lưu CLB Sách", cost:12}
+  {name:"Bookmark thiết kế riêng", cost:3},
+  {name:"Bộ dụng cụ học tập", cost:6},
+  {name:"Quyển sách em yêu thích", cost:12}
 ];
-const KEY="readingPassportKids_v1";
+const KEY="readingPassportKids_v2";
+const ACCTS_KEY="rp_accounts_v1";   // bản sao hồ sơ trên máy (đăng nhập offline)
+const AVATAR_KEY="rp_avatars_v1";   // ảnh chân dung chỉ lưu trên máy
 let state=load();
 function load(){
   try{const r=localStorage.getItem(KEY); if(r) return JSON.parse(r);}catch(e){}
-  return {uid:uid(), profile:{name:"",avatar:"",no:genNo(),date:today(),goal:12,icon:"★"}, books:[], redeemed:0};
+  return {uid:uid(), loggedIn:false, isAdmin:false, profile:{name:"",avatar:"",no:"",date:"",goal:12,icon:"★"}, books:[], redeemed:0};
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
 function uid(){return 'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
 function genNo(){return "RP"+Math.floor(1000000+Math.random()*8999999);}
-function today(){return new Date().toLocaleDateString('vi-VN');}
+function fmtDate(d){const p=n=>String(n).padStart(2,'0'); return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear();}
+function today(){return fmtDate(new Date());}
+function fmtISO(iso){if(!iso)return '?'; const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso); return m? m[3]+'/'+m[2]+'/'+m[1] : iso;}
+/* tự chèn dấu / khi gõ ngày: dd/mm/yyyy */
+function maskDate(el){
+  let v=el.value.replace(/\D/g,'').slice(0,8);
+  if(v.length>=5) v=v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);
+  else if(v.length>=3) v=v.slice(0,2)+'/'+v.slice(2);
+  el.value=v;
+}
+/* hiển thị ngày: chấp nhận cả dd/mm/yyyy (mới) lẫn yyyy-mm-dd (cũ) */
+function showDate(v){ if(!v) return '?'; if(/^\d{2}\/\d{2}\/\d{4}$/.test(v)) return v; return fmtISO(v); }
+
+/* --- bản sao tài khoản trên máy (để đăng nhập khi ngoại tuyến) --- */
+function loadMap(k){try{return JSON.parse(localStorage.getItem(k)||'{}');}catch(e){return {};}}
+function saveMap(k,m){try{localStorage.setItem(k,JSON.stringify(m));}catch(e){}}
+function saveAccountLocal(no,data){const m=loadMap(ACCTS_KEY); m[no]=data; saveMap(ACCTS_KEY,m);}
+function getAccountLocal(no){return loadMap(ACCTS_KEY)[no]||null;}
+function saveAvatar(no,url){const m=loadMap(AVATAR_KEY); m[no]=url; saveMap(AVATAR_KEY,m);}
+function getAvatar(no){return loadMap(AVATAR_KEY)[no]||"";}
 
 /* populate genre select */
 (function(){const s=document.getElementById('fGenre'); Object.keys(GENRE).forEach(g=>{const o=document.createElement('option'); o.textContent=g; s.appendChild(o);});})();
@@ -527,9 +632,12 @@ window.addEventListener('resize',()=>{if(mode==='auto')applyLayout();});
 const PAGES=['cover','message','profile','stamps','log','rank'];
 let page='stamps';
 function go(p){
+  if(p==='admin' && !state.isAdmin){ p='profile'; }
   page=p;
   document.querySelectorAll('.leaf').forEach(l=>l.classList.toggle('active', l.dataset.page===p));
   document.querySelectorAll('.tabs button, .bottom-nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===p));
+  if(p==='profile') renderProfilePage();
+  if(p==='admin') renderAdmin();
   renderStepper();
   const book=document.getElementById('book'); if(book) book.scrollIntoView({block:'nearest'});
   window.scrollTo({top:0,behavior:'smooth'});
@@ -539,41 +647,97 @@ function renderStepper(){
   PAGES.forEach(p=>{const i=document.createElement('i'); i.className=(p===page?'on':''); i.title=p; i.onclick=()=>go(p); s.appendChild(i);});
 }
 
-/* ---------- PROFILE ---------- */
+/* ---------- PROFILE / TÀI KHOẢN ---------- */
+function renderProfilePage(){
+  const gate=document.getElementById('gate'), card=document.getElementById('profileCard');
+  if(state.loggedIn){ gate.style.display='none'; card.style.display='block'; initProfile(); }
+  else { gate.style.display='block'; card.style.display='none'; }
+}
+function gateTab(t){
+  document.getElementById('gtLogin').classList.toggle('on',t==='login');
+  document.getElementById('gtNew').classList.toggle('on',t==='new');
+  document.getElementById('gateLogin').style.display = t==='login'?'block':'none';
+  document.getElementById('gateNew').style.display = t==='new'?'block':'none';
+}
 function initProfile(){
+  const im=document.getElementById('avatarImg'), hint=document.getElementById('avatarHint');
   document.getElementById('pName').value=state.profile.name||"";
-  document.getElementById('pNo').textContent=state.profile.no;
-  document.getElementById('pDate').textContent=state.profile.date;
+  document.getElementById('pNo').textContent=state.profile.no||"—";
+  document.getElementById('pDate').textContent=state.profile.date||"—";
   document.getElementById('pGoal').value=state.profile.goal||12;
-  if(state.profile.avatar){const im=document.getElementById('avatarImg'); im.src=state.profile.avatar; im.style.display='block'; document.getElementById('avatarHint').style.display='none';}
+  if(state.profile.avatar){im.src=state.profile.avatar; im.style.display='block'; hint.style.display='none';}
+  else {im.style.display='none'; im.removeAttribute('src'); hint.style.display='block';}
+}
+function createProfile(){
+  const name=document.getElementById('newName').value.trim();
+  if(!name){alert('Hãy nhập họ tên trước khi tạo hồ sơ.'); return;}
+  const goal=parseInt(document.getElementById('newGoal').value)||12;
+  const no=genNo();
+  state.loggedIn=true;
+  state.profile={name, no, date:today(), goal, icon:"★", avatar:""};
+  state.books=[]; state.redeemed=0;
+  save(); saveRemote();
+  document.getElementById('newName').value=''; 
+  renderProfilePage(); renderAll();
+  alert('🎉 Đã tạo hộ chiếu!\n\nSố hộ chiếu của bạn là: '+no+'\n\nHãy GHI NHỚ số này để đăng nhập lần sau (kể cả trên máy khác).');
+}
+function loginProfile(){
+  const no=document.getElementById('loginNo').value.trim().toUpperCase();
+  const msg=document.getElementById('loginMsg');
+  msg.className='gate-msg';
+  if(!no){msg.textContent='Hãy nhập số hộ chiếu.'; msg.classList.add('err'); return;}
+  msg.textContent='Đang kiểm tra...';
+  const useLocal=()=>{
+    const loc=getAccountLocal(no);
+    if(loc){applyAccount(no,loc); msg.textContent='';}
+    else {msg.textContent='Không tìm thấy hộ chiếu số '+no+(online?'':' trên thiết bị này'); msg.classList.add('err');}
+  };
+  if(online && db){
+    db.ref('accounts/'+no).once('value').then(snap=>{
+      if(snap.exists()) {applyAccount(no,snap.val()); msg.textContent='';}
+      else useLocal();
+    }).catch(()=>useLocal());
+  } else useLocal();
+}
+function applyAccount(no,data){
+  const p=data.profile||{};
+  state.loggedIn=true;
+  state.profile={name:p.name||"", no, date:p.date||today(), goal:p.goal||12, icon:p.icon||"★", avatar:getAvatar(no)};
+  state.books=data.books||[]; state.redeemed=data.redeemed||0;
+  document.getElementById('loginNo').value='';
+  save(); renderProfilePage(); renderAll(); pickIconRefresh();
+}
+function logout(){
+  if(!confirm('Đăng xuất khỏi hồ sơ này? Bạn có thể đăng nhập lại bằng số hộ chiếu.')) return;
+  state.loggedIn=false;
+  state.profile={name:"",avatar:"",no:"",date:"",goal:12,icon:"★"};
+  state.books=[]; state.redeemed=0;
+  save(); renderProfilePage(); renderAll();
+  gateTab('login'); go('profile');
+}
+function copyNo(){
+  const no=state.profile.no; if(!no) return;
+  navigator.clipboard?.writeText(no).then(()=>alert('Đã sao chép số hộ chiếu: '+no)).catch(()=>alert('Số hộ chiếu của bạn: '+no));
 }
 let pushTimer=null;
 function onProfileEdit(){
   state.profile.name=document.getElementById('pName').value;
   state.profile.goal=parseInt(document.getElementById('pGoal').value)||1;
-  save(); renderMrz();
-  clearTimeout(pushTimer); pushTimer=setTimeout(pushMe,600);
+  save();
+  clearTimeout(pushTimer); pushTimer=setTimeout(saveRemote,600);
 }
-function onAvatar(e){const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{state.profile.avatar=ev.target.result; save(); initProfile();}; r.readAsDataURL(f);}
+function onAvatar(e){const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{state.profile.avatar=ev.target.result; if(state.profile.no) saveAvatar(state.profile.no,ev.target.result); save(); initProfile();}; r.readAsDataURL(f);}
 function renderProgress(){
   const goal=state.profile.goal||1, n=state.books.length, pct=Math.min(1,n/goal);
   const r=40,c=2*Math.PI*r;
-  document.getElementById('goalRing').innerHTML=`
+  const ring=document.getElementById('goalRing'); if(!ring) return;
+  ring.innerHTML=`
     <circle cx="50" cy="50" r="${r}" fill="none" stroke="var(--line)" stroke-width="9"/>
     <circle cx="50" cy="50" r="${r}" fill="none" stroke="var(--gold)" stroke-width="9" stroke-linecap="round"
       stroke-dasharray="${c}" stroke-dashoffset="${c*(1-pct)}" transform="rotate(-90 50 50)" style="transition:stroke-dashoffset .5s"/>
     <text x="50" y="56" text-anchor="middle" font-family="var(--serif)" font-size="23" font-weight="700" fill="var(--ink)">${Math.round(pct*100)}%</text>`;
   document.getElementById('goalCount').textContent=n+" / "+goal;
 }
-function noDia(s){return (s||"").normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D');}
-function pad(s,n){s=noDia(s).toUpperCase().replace(/[^A-Z0-9< ]/g,'').replace(/ /g,'<'); while(s.length<n)s+='<'; return s.slice(0,n);}
-function renderMrz(){
-  const name=pad(state.profile.name||"DOC GIA",28);
-  const l1="P<VNM"+name;
-  const l2=pad(state.profile.no,10)+"VNM<"+pad(String(state.books.length).padStart(3,'0'),4)+pad(currentTier().title,14);
-  document.getElementById('mrzStrip').innerHTML=carets(l1)+"<br>"+carets(l2);
-}
-function carets(s){return s.replace(/</g,'<span class="caret">&lt;</span>');}
 
 /* ---------- STAMPS ---------- */
 function renderStamps(){
@@ -600,18 +764,20 @@ function renderStamps(){
 
 /* ---------- LOG ---------- */
 let rating=0;
-function pickIcon(ic){state.profile.icon=ic; save(); document.querySelectorAll('#iconPick button').forEach(b=>b.classList.toggle('on',b.dataset.i===ic)); initStars();}
+function pickIcon(ic){state.profile.icon=ic; save(); pickIconRefresh();}
+function pickIconRefresh(){const ic=state.profile.icon||"★"; document.querySelectorAll('#iconPick button').forEach(b=>b.classList.toggle('on',b.dataset.i===ic)); initStars();}
 function initStars(){const w=document.getElementById('starPicker'); w.innerHTML=""; const ic=state.profile.icon||"★"; for(let i=1;i<=5;i++){const s=document.createElement('span'); s.textContent=ic; s.dataset.v=i; s.onclick=()=>{rating=i; paintStars();}; w.appendChild(s);} paintStars();}
 function paintStars(){document.querySelectorAll('#starPicker span').forEach(s=>s.classList.toggle('on',+s.dataset.v<=rating));}
 function addBook(){
+  if(!state.loggedIn){alert('Hãy tạo hồ sơ hoặc đăng nhập trước khi ghi sách nhé!'); go('profile'); return;}
   const t=document.getElementById('fTitle').value.trim();
   if(!t){alert('Vui lòng nhập tên sách.'); return;}
   state.books.push({id:Date.now(), title:t, author:document.getElementById('fAuthor').value.trim(), genre:document.getElementById('fGenre').value, country:document.getElementById('fCountry').value.trim(), start:document.getElementById('fStart').value, end:document.getElementById('fEnd').value, rating:rating||5, icon:state.profile.icon||"★", note:document.getElementById('fNote').value.trim()});
   save();
   ['fTitle','fAuthor','fCountry','fStart','fEnd','fNote'].forEach(id=>document.getElementById(id).value='');
-  rating=0; paintStars(); renderAll(); pushMe(); go('stamps');
+  rating=0; paintStars(); renderAll(); saveRemote(); go('stamps');
 }
-function delBook(id){if(!confirm('Xoá cuốn sách này?'))return; state.books=state.books.filter(b=>b.id!==id); save(); renderAll(); pushMe();}
+function delBook(id){if(!confirm('Xoá cuốn sách này?'))return; state.books=state.books.filter(b=>b.id!==id); save(); renderAll(); saveRemote();}
 function renderLog(){
   const w=document.getElementById('logList'); w.innerHTML="";
   if(!state.books.length){w.innerHTML='<div class="list-empty">Chưa có cuốn sách nào được ghi lại.</div>'; return;}
@@ -621,7 +787,7 @@ function renderLog(){
     d.innerHTML=`<div class="top"><div>
         <h3>${esc(b.title)}</h3>
         <div class="meta">${esc((b.author||"—").toUpperCase())} · ${g.sub} · ${esc((b.country||"—").toUpperCase())}</div>
-        <div class="meta">${b.start||"?"} → ${b.end||"?"}</div></div>
+        <div class="meta">${showDate(b.start)} → ${showDate(b.end)}</div></div>
         <button class="del" onclick="delBook(${b.id})">✕</button></div>
       <div class="rate">${ic.repeat(b.rating)}<span style="opacity:.25">${ic.repeat(5-b.rating)}</span></div>
       ${b.note?'<div class="note">“'+esc(b.note)+'”</div>':''}`;
@@ -648,11 +814,10 @@ function renderRoster(){
   const w=document.getElementById('rosterList');
   let list;
   if(online && remoteList.length){
-    list=remoteList.filter(r=>withinPeriod(r.updated)).map(r=>({name:r.name||"Ẩn danh", count:r.count||0, me:r.id===state.uid}));
-    // đảm bảo có mình
-    if(!list.some(r=>r.me)) list.push({name:(state.profile.name||"Bạn")+" (bạn)", count:state.books.length, me:true});
+    list=remoteList.filter(r=>withinPeriod(r.updated)).map(r=>({name:r.name||"Ẩn danh", count:r.count||0, me:r.id===state.profile.no}));
+    if(state.loggedIn && !list.some(r=>r.me)) list.push({name:(state.profile.name||"Bạn")+" (bạn)", count:state.books.length, me:true});
   }else{
-    list=[{name:(state.profile.name||"Bạn")+" (bạn)", count:state.books.length, me:true}];
+    list = state.loggedIn ? [{name:(state.profile.name||"Bạn")+" (bạn)", count:state.books.length, me:true}] : [];
   }
   list.sort((a,b)=>b.count-a.count);
   const medals=['🥇','🥈','🥉'];
@@ -664,8 +829,43 @@ function renderRewards(){
   REWARDS.forEach(r=>{const can=pts>=r.cost; const row=document.createElement('div'); row.className='reward-row';
     row.innerHTML=`<span>${r.name} <span style="color:var(--ink-faint)">· ${r.cost} điểm</span></span>`;
     const b=document.createElement('button'); b.className='btn small '+(can?'solid':'ghost'); b.textContent=can?'Đổi':'Chưa đủ'; b.disabled=!can;
-    b.onclick=()=>{if(!can)return; state.redeemed=(state.redeemed||0)+r.cost; save(); renderRewards(); alert('Đã đổi: '+r.name+'! Liên hệ thư viện để nhận quà.');};
+    b.onclick=()=>{if(!can)return; state.redeemed=(state.redeemed||0)+r.cost; save(); saveRemote(); renderRewards(); alert('Đã đổi: '+r.name+'! Liên hệ thư viện để nhận quà.');};
     row.appendChild(b); w.appendChild(row);});
+}
+
+/* ---------- QUẢN TRỊ (ADMIN) ---------- */
+const ADMIN_CODE = "admin2026";   // 🔑 Đổi mật khẩu quản trị tại đây
+function adminLogin(){
+  const p = prompt('Nhập mật khẩu quản trị:');
+  if(p===null) return;
+  if(p===ADMIN_CODE){ state.isAdmin=true; save(); applyAdminUI(); go('admin'); }
+  else alert('Sai mật khẩu quản trị.');
+}
+function adminLogout(){ state.isAdmin=false; save(); applyAdminUI(); go('profile'); }
+function applyAdminUI(){ document.querySelectorAll('.admin-only').forEach(el=>el.style.display = state.isAdmin ? '' : 'none'); }
+function renderAdmin(){
+  const wrap=document.getElementById('adminList'); if(!wrap) return;
+  const kw=(document.getElementById('adminSearch').value||'').trim().toLowerCase();
+  let list;
+  if(online && remoteList.length){
+    list=remoteList.map(r=>({no:r.id, name:r.name||'Ẩn danh', count:r.count||0, tier:r.tier||''}));
+  }else{
+    const m=loadMap(ACCTS_KEY);
+    list=Object.entries(m).map(([no,d])=>({no, name:(d.profile&&d.profile.name)||'Ẩn danh', count:(d.books||[]).length, tier:''}));
+  }
+  if(kw) list=list.filter(r=>r.name.toLowerCase().includes(kw)||r.no.toLowerCase().includes(kw));
+  list.sort((a,b)=>b.count-a.count);
+  document.getElementById('adminCount').textContent=list.length+' hồ sơ';
+  wrap.innerHTML = list.map(r=>`<div class="admin-row"><div><b>${esc(r.name)}</b><div class="admin-meta">${esc(r.no)} · ${r.count} cuốn${r.tier?' · '+esc(r.tier):''}</div></div><button class="btn-del" onclick="deleteProfile('${esc(r.no)}')">🗑 Xóa</button></div>`).join('') || '<div class="list-empty">Chưa có hồ sơ nào.</div>';
+}
+function deleteProfile(no){
+  if(!state.isAdmin) return;
+  if(!confirm('Xóa vĩnh viễn hồ sơ số '+no+'?\nHành động này không thể hoàn tác.')) return;
+  if(online && db){ db.ref('accounts/'+no).remove().catch(e=>console.warn(e)); db.ref('board/'+no).remove().catch(e=>console.warn(e)); }
+  const m=loadMap(ACCTS_KEY); delete m[no]; saveMap(ACCTS_KEY,m);
+  const av=loadMap(AVATAR_KEY); delete av[no]; saveMap(AVATAR_KEY,av);
+  if(!online){ remoteList=remoteList.filter(r=>r.id!==no); }
+  renderAdmin(); renderRoster();
 }
 
 /* ---------- ONLINE (Firebase) — cấu hình điền sẵn trong FIREBASE_CONFIG ---------- */
@@ -679,28 +879,53 @@ function initOnline(){
     db=firebase.database(); online=true;
     setSync(true,'Trực tuyến');
     document.getElementById('leadNote').textContent='Bảng xếp hạng đồng bộ trực tuyến — thi đua cùng cả trường! (chỉ chia sẻ tên + số sách + danh hiệu)';
-    db.ref('passports').on('value', snap=>{const v=snap.val()||{}; remoteList=Object.entries(v).map(([id,d])=>({id,...d})); renderRoster();});
-    pushMe();
+    db.ref('board').on('value', snap=>{const v=snap.val()||{}; remoteList=Object.entries(v).map(([no,d])=>({id:no,...d})); renderRoster(); if(state.isAdmin) renderAdmin();});
+    saveRemote();
   }catch(e){console.warn(e); setSync(false,'Ngoại tuyến'); online=false;}
 }
-function pushMe(){
-  if(!online||!db)return;
-  const name=(state.profile.name||'Độc giả ẩn danh').trim();
-  db.ref('passports/'+state.uid).set({name, count:state.books.length, tier:currentTier().title, updated:Date.now()}).catch(e=>console.warn(e));
+/* lưu hồ sơ: bản sao trên máy + (nếu online) lên Firebase theo số hộ chiếu.
+   Ảnh chân dung KHÔNG được đẩy lên mạng — chỉ lưu trên máy. */
+function saveRemote(){
+  if(!state.loggedIn || !state.profile.no) return;
+  const no=state.profile.no;
+  const acct={profile:{name:state.profile.name, date:state.profile.date, goal:state.profile.goal, icon:state.profile.icon}, books:state.books, redeemed:state.redeemed||0, updated:Date.now()};
+  saveAccountLocal(no, acct);
+  if(online && db){
+    db.ref('accounts/'+no).set(acct).catch(e=>console.warn(e));
+    db.ref('board/'+no).set({name:state.profile.name||'Ẩn danh', count:state.books.length, tier:currentTier().title, updated:Date.now()}).catch(e=>console.warn(e));
+  }
 }
 function setSync(on,txt){document.getElementById('syncDot').classList.toggle('on',on); document.getElementById('syncTxt').textContent=txt;}
 
+/* ---------- HƯỚNG DẪN ---------- */
+function openGuide(){document.getElementById('guide').classList.add('show');}
+function closeGuide(){document.getElementById('guide').classList.remove('show');}
+
 /* ---------- UTIL ---------- */
 function esc(s){return (s||"").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function renderAll(){renderProgress(); renderMrz(); renderStamps(); renderLog(); renderRank();}
+function renderAll(){renderProgress(); renderStamps(); renderLog(); renderRank();}
 
 /* ---------- INIT ---------- */
-initProfile(); initStars(); renderStepper();
-document.querySelectorAll('#iconPick button').forEach(b=>b.classList.toggle('on',b.dataset.i===(state.profile.icon||"★")));
+renderProfilePage(); gateTab('login'); initStars(); pickIconRefresh(); renderStepper(); applyAdminUI();
 applyLayout();
 renderAll();
 go('cover');
 initOnline();
-</script>
+</script>  <!-- HƯỚNG DẪN SỬ DỤNG -->
+  <div class="guide-modal" id="guide" onclick="if(event.target===this)closeGuide()">
+    <div class="guide-card">
+      <button class="guide-close" onclick="closeGuide()">✕</button>
+      <div class="eyebrow">Hướng dẫn sử dụng</div>
+      <h2 style="margin:4px 0 16px; font-size:22px;">Hộ chiếu đọc sách hoạt động thế nào? 🧭</h2>
+      <div class="guide-step"><div class="n">1</div><div class="t"><b>Tạo hồ sơ hoặc đăng nhập</b><p>Vào trang <b>Hồ sơ</b> → chọn <i>Tạo hồ sơ mới</i> để nhận <b>số hộ chiếu</b> riêng, hoặc <i>Đăng nhập</i> bằng số hộ chiếu đã có.</p></div></div>
+      <div class="guide-step"><div class="n">2</div><div class="t"><b>Ghi lại cuốn sách đã đọc</b><p>Sang trang <b>Nhật ký</b>, điền tên sách, tác giả, thể loại, ngày đọc, chấm sao và 3 điều tâm đắc rồi bấm <i>Đóng dấu &amp; lưu</i>.</p></div></div>
+      <div class="guide-step"><div class="n">3</div><div class="t"><b>Nhận con dấu thị thực</b><p>Mỗi cuốn sách hoàn thành sẽ tạo một <b>nhãn dán thể loại</b> ở trang <b>Thị thực</b> 🎉</p></div></div>
+      <div class="guide-step"><div class="n">4</div><div class="t"><b>Lên hạng &amp; đổi quà</b><p>Trang <b>Xếp hạng</b> hiển thị danh hiệu, bảng vàng toàn trường và kho quà đổi bằng điểm (mỗi con dấu = 1 điểm).</p></div></div>
+      <div class="guide-step"><div class="n">5</div><div class="t"><b>Ghi nhớ số hộ chiếu</b><p>Dùng số hộ chiếu để đăng nhập lại ở bất kỳ máy nào và tiếp tục hành trình của bạn.</p></div></div>
+      <p style="font-size:12.5px; color:var(--ink-faint); margin-top:14px; border-top:1px solid var(--line); padding-top:12px;">💡 Mẹo: nút <b>🖥 Máy tính / 📱 Điện thoại</b> ở phía trên giúp đổi giao diện phù hợp với thiết bị của bạn.</p>
+      <button class="btn solid" style="margin-top:16px; width:100%;" onclick="closeGuide()">Đã hiểu, bắt đầu thôi!</button>
+    </div>
+  </div>
+
 </body>
 </html>
