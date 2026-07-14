@@ -46,6 +46,9 @@
   .mode-btn{background:none; border:none; color:#c3cbe0; padding:7px 13px; border-radius:999px; cursor:pointer; font-size:12.5px; font-weight:600; transition:.2s;}
   .mode-btn.active{background:var(--gold); color:var(--navy-deep);}
   .sync-pill{display:flex; gap:7px; align-items:center; background:rgba(0,0,0,.28); border:1px solid rgba(225,181,78,.3); border-radius:999px; padding:7px 13px; font-size:12px; color:#cdd4e6;}
+  .admin-fab{background:rgba(0,0,0,.28); border:1px solid rgba(225,181,78,.35); color:#e6d8b8; border-radius:999px; width:36px; height:36px; cursor:pointer; font-size:15px; line-height:1;}
+  .admin-fab:hover{background:var(--gold); color:var(--navy-deep);}
+  .admin-fab.on{background:var(--gold); color:var(--navy-deep);}
   .dot{width:8px; height:8px; border-radius:50%; background:#8a91a3;}
   .dot.on{background:#39c07a; box-shadow:0 0 8px #39c07a;}
 
@@ -291,6 +294,7 @@
       <button class="mode-btn active" id="mAuto" onclick="setMode('auto')">✦ Tự động</button>
     </div>
     <div class="sync-pill"><span class="dot" id="syncDot"></span><span id="syncTxt">Ngoại tuyến</span></div>
+    <button class="admin-fab" id="adminFab" onclick="adminAccess()" title="Đăng nhập quản trị">🔒</button>
   </div>
 
   <div class="stage">
@@ -309,7 +313,6 @@
       <!-- 1. COVER -->
       <section class="leaf" data-page="cover">
         <div class="cover">
-          <div class="country">Cộng Hoà Văn Hoá Đọc</div>
           <svg class="seal-c" viewBox="0 0 100 100" id="sealCover"></svg>
           <h1>HỘ CHIẾU ĐỌC SÁCH</h1>
           <div class="en">Reading Passport</div>
@@ -561,18 +564,14 @@ const FIREBASE_CONFIG = {
 
 /* ---------- SEAL ---------- */
 function sealSVG(id){return `
-  <defs>
-    <path id="st-${id}" d="M50,50 m-38,0 a38,38 0 1,1 76,0" fill="none"/>
-    <path id="sb-${id}" d="M50,50 m38,0 a38,38 0 1,1 -76,0" fill="none"/>
-  </defs>
-  <circle cx="50" cy="50" r="46" fill="none" stroke="var(--gold)" stroke-width="1.4"/>
-  <circle cx="50" cy="50" r="41" fill="none" stroke="var(--gold)" stroke-width="0.6"/>
-  <circle cx="50" cy="50" r="27" fill="none" stroke="var(--gold)" stroke-width="0.8"/>
-  <text font-family="var(--mrz)" font-size="6.2" letter-spacing="2.2" fill="var(--gold)"><textPath href="#st-${id}" startOffset="50%" text-anchor="middle">REPUBLIC OF READING</textPath></text>
-  <text font-family="var(--mrz)" font-size="6.2" letter-spacing="2" fill="var(--gold)"><textPath href="#sb-${id}" startOffset="50%" text-anchor="middle">★ VĂN HOÁ ĐỌC ★</textPath></text>
-  <path d="M36 40 Q50 34 64 40 L64 62 Q50 56 36 62 Z" fill="none" stroke="var(--gold)" stroke-width="1.3"/>
-  <path d="M50 34 Q44 37 44 40 L44 60 Q47 57 50 58 Z" fill="var(--gold)" opacity=".9"/>
-  <path d="M50 34 Q56 37 56 40 L56 60 Q53 57 50 58 Z" fill="var(--gold)" opacity=".62"/>`;}
+  <polygon points="92.5,67.6 67.6,92.5 32.4,92.5 7.5,67.6 7.5,32.4 32.4,7.5 67.6,7.5 92.5,32.4" fill="none" stroke="var(--gold)" stroke-width="1.7"/>
+  <polygon points="87.9,65.7 65.7,87.9 34.3,87.9 12.1,65.7 12.1,34.3 34.3,12.1 65.7,12.1 87.9,34.3" fill="none" stroke="var(--gold)" stroke-width="0.7"/>
+  <circle cx="50" cy="50" r="33" fill="none" stroke="var(--gold)" stroke-width="1" stroke-dasharray="0.6 3.4" stroke-linecap="round"/>
+  <path d="M50 17 L51.6 26 L62 32 L62 34.4 L51.6 31 L51.6 38 L55 41 L55 43 L50 41 L45 43 L45 41 L48.4 38 L48.4 31 L38 34.4 L38 32 L48.4 26 Z" fill="var(--gold)"/>
+  <text x="50" y="55" text-anchor="middle" font-family="var(--sans)" font-weight="700" font-size="10" letter-spacing="1.3" fill="var(--gold)">READING</text>
+  <text x="50" y="66" text-anchor="middle" font-family="var(--sans)" font-weight="700" font-size="10" letter-spacing="1.3" fill="var(--gold)">PASSPORT</text>
+  <path d="M50 73 Q43 69 35 71 L35 80 Q43 78 50 82 Q57 78 65 80 L65 71 Q57 69 50 73 Z" fill="none" stroke="var(--gold)" stroke-width="1.4"/>
+  <line x1="50" y1="74" x2="50" y2="81" stroke="var(--gold)" stroke-width="1"/>`;}
 ['sealCover','sealSmall','sealRank'].forEach(id=>{const e=document.getElementById(id); if(e)e.innerHTML=sealSVG(id);});
 
 /* ---------- DATA ---------- */
@@ -854,7 +853,10 @@ function renderRewards(){
   REWARDS.forEach(r=>{const can=pts>=r.cost; const row=document.createElement('div'); row.className='reward-row';
     row.innerHTML=`<span>${r.name} <span style="color:var(--ink-faint)">· ${r.cost} điểm</span></span>`;
     const b=document.createElement('button'); b.className='btn small '+(can?'solid':'ghost'); b.textContent=can?'Đổi':'Chưa đủ'; b.disabled=!can;
-    b.onclick=()=>{if(!can)return; state.redeemed=(state.redeemed||0)+r.cost; save(); saveRemote(); renderRewards(); downloadCertificate(r.name); alert('🎉 Đã đổi: '+r.name+'!\nẢnh chứng nhận đã được tải về máy. Hãy đưa cho thư viện để nhận quà nhé.');};
+    b.onclick=()=>{if(!can)return;
+      const remain=pts-r.cost;
+      if(!confirm('Bạn có chắc chắn muốn đổi "'+r.name+'"?\n\n• Sẽ trừ '+r.cost+' điểm (còn lại '+remain+' điểm).\n• Điểm đã đổi sẽ KHÔNG được tính để tích lũy lên cột mốc/phần thưởng tiếp theo.\n\nBấm OK để đổi, hoặc Hủy để giữ điểm.')) return;
+      state.redeemed=(state.redeemed||0)+r.cost; save(); saveRemote(); renderRewards(); downloadCertificate(r.name); alert('🎉 Đã đổi: '+r.name+'!\nẢnh chứng nhận đã được tải về máy. Hãy đưa cho thư viện để nhận quà nhé.');};
     row.appendChild(b); w.appendChild(row);});
 }
 
@@ -866,8 +868,13 @@ function adminLogin(){
   if(p===ADMIN_CODE){ state.isAdmin=true; save(); applyAdminUI(); go('admin'); }
   else alert('Sai mật khẩu quản trị.');
 }
+function adminAccess(){ if(state.isAdmin) go('admin'); else adminLogin(); }
 function adminLogout(){ state.isAdmin=false; save(); applyAdminUI(); go('profile'); }
-function applyAdminUI(){ document.querySelectorAll('.admin-only').forEach(el=>el.style.display = state.isAdmin ? '' : 'none'); }
+function applyAdminUI(){
+  document.querySelectorAll('.admin-only').forEach(el=>el.style.display = state.isAdmin ? '' : 'none');
+  const fab=document.getElementById('adminFab');
+  if(fab){ fab.classList.toggle('on', state.isAdmin); fab.title = state.isAdmin ? 'Trang quản trị' : 'Đăng nhập quản trị'; }
+}
 function renderAdmin(){
   const wrap=document.getElementById('adminList'); if(!wrap) return;
   const kw=(document.getElementById('adminSearch').value||'').trim().toLowerCase();
@@ -975,11 +982,27 @@ function closeGuide(){document.getElementById('guide').classList.remove('show');
 /* ---------- CHỨNG NHẬN ĐỔI QUÀ (ảnh PNG) ---------- */
 function roundRect(x,rx,ry,w,h,r){x.beginPath(); x.moveTo(rx+r,ry); x.arcTo(rx+w,ry,rx+w,ry+h,r); x.arcTo(rx+w,ry+h,rx,ry+h,r); x.arcTo(rx,ry+h,rx,ry,r); x.arcTo(rx,ry,rx+w,ry,r); x.closePath();}
 function drawSeal(x,cx,cy,r){
-  x.save(); x.strokeStyle='#BC9A5F'; x.lineWidth=3;
-  x.beginPath(); x.arc(cx,cy,r,0,Math.PI*2); x.stroke();
-  x.lineWidth=1; x.beginPath(); x.arc(cx,cy,r-7,0,Math.PI*2); x.stroke();
+  x.save();
+  const oct=(rr)=>{x.beginPath(); for(let i=0;i<8;i++){const a=(Math.PI/180)*(22.5+45*i), px=cx+rr*Math.cos(a), py=cy+rr*Math.sin(a); i?x.lineTo(px,py):x.moveTo(px,py);} x.closePath();};
+  x.strokeStyle='#BC9A5F';
+  x.lineWidth=3; oct(r); x.stroke();
+  x.lineWidth=1; oct(r-6); x.stroke();
+  x.setLineDash([1.2,4]); x.lineWidth=1.3; x.beginPath(); x.arc(cx,cy,r-13,0,Math.PI*2); x.stroke(); x.setLineDash([]);
+  // máy bay
+  x.fillStyle='#BC9A5F'; const s=r/46;
+  x.save(); x.translate(cx,cy-r*0.44); x.scale(s,s);
+  x.beginPath();
+  x.moveTo(0,-14); x.lineTo(1.6,-5); x.lineTo(12,1); x.lineTo(12,3.4); x.lineTo(1.6,0); x.lineTo(1.6,7); x.lineTo(5,10); x.lineTo(5,12); x.lineTo(0,10); x.lineTo(-5,12); x.lineTo(-5,10); x.lineTo(-1.6,7); x.lineTo(-1.6,0); x.lineTo(-12,3.4); x.lineTo(-12,1); x.lineTo(-1.6,-5); x.closePath(); x.fill();
+  x.restore();
+  // chữ
   x.fillStyle='#BC9A5F'; x.textAlign='center'; x.textBaseline='middle';
-  x.font=(r*0.8)+'px "Segoe UI Emoji",Georgia'; x.fillText('📖',cx,cy+2);
+  x.font='bold '+(r*0.2)+'px "Segoe UI",Arial';
+  x.fillText('READING',cx,cy+r*0.04);
+  x.fillText('PASSPORT',cx,cy+r*0.28);
+  // sách mở
+  x.strokeStyle='#BC9A5F'; x.lineWidth=1.6; const by=cy+r*0.6;
+  x.beginPath(); x.moveTo(cx,by-3); x.quadraticCurveTo(cx-7,by-6,cx-14,by-4); x.lineTo(cx-14,by+5); x.quadraticCurveTo(cx-7,by+3,cx,by+7); x.quadraticCurveTo(cx+7,by+3,cx+14,by+5); x.lineTo(cx+14,by-4); x.quadraticCurveTo(cx+7,by-6,cx,by-3); x.closePath(); x.stroke();
+  x.beginPath(); x.moveTo(cx,by-2); x.lineTo(cx,by+6); x.stroke();
   x.textBaseline='alphabetic'; x.restore();
 }
 function downloadCertificate(rewardName){
@@ -994,8 +1017,7 @@ function downloadCertificate(rewardName){
   x.strokeStyle='#BC9A5F'; x.lineWidth=6; x.strokeRect(24,24,W-48,H-48);
   x.lineWidth=1.5; x.strokeRect(38,38,W-76,H-76);
   const ctr=(t,y,font,color)=>{x.font=font; x.fillStyle=color; x.textAlign='center'; x.fillText(t,W/2,y);};
-  ctr('CỘNG HOÀ VĂN HOÁ ĐỌC',92,'bold 20px Georgia','#B08828');
-  drawSeal(x,W/2,168,46);
+  drawSeal(x,W/2,150,50);
   ctr('CHỨNG NHẬN ĐỔI QUÀ',272,'bold 52px Georgia','#17285A');
   ctr('Reward Certificate',302,'italic 22px Georgia','#8E6E38');
   ctr('Trân trọng chứng nhận độc giả',358,'22px "Segoe UI",Arial','#5E6577');
@@ -1005,8 +1027,7 @@ function downloadCertificate(rewardName){
   roundRect(x,W/2-270,478,540,48,12); x.fillStyle='rgba(188,154,95,0.16)'; x.fill(); x.strokeStyle='#BC9A5F'; x.lineWidth=1.5; x.stroke();
   ctr('🎁  '+rewardName,510,'bold 30px Georgia','#7A2E3B');
   // số hộ chiếu + ngày
-  ctr('Số hộ chiếu: '+no+'        Ngày: '+date,578,'bold 22px "Courier New",monospace','#17285A');
-  ctr('— Thư viện nhà trường —',640,'italic 20px Georgia','#5E6577');
+  ctr('Số hộ chiếu: '+no+'        Ngày: '+date,600,'bold 22px "Courier New",monospace','#17285A');
   const a=document.createElement('a');
   const slug=(rewardName||'qua').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/[^a-zA-Z0-9]+/g,'-').toLowerCase();
   a.download='chung-nhan-'+(no||'hochieu')+'-'+slug+'.png';
