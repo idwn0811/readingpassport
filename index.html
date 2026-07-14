@@ -161,6 +161,12 @@
   .admin-meta{font-family:var(--mrz); font-size:11px; color:var(--ink-soft); margin-top:2px; letter-spacing:.02em;}
   .btn-del{border:1px solid var(--c-coral); color:var(--c-coral); background:transparent; border-radius:8px; padding:7px 13px; font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap;}
   .btn-del:hover{background:var(--c-coral); color:#fff;}
+  .edit-row{display:flex; gap:6px; align-items:center; margin-bottom:7px;}
+  .edit-row input{border:1px solid var(--line); border-radius:7px; padding:8px; font-size:13px; background:#fff; min-width:0;}
+  .edit-row .ed-ic{width:46px; text-align:center; font-size:16px;}
+  .edit-row .ed-title, .edit-row .ed-name{flex:1;}
+  .edit-row .ed-min, .edit-row .ed-max, .edit-row .ed-cost{width:74px; text-align:center;}
+  .edit-row .btn-x{border:none; background:none; color:var(--c-coral); font-size:16px; cursor:pointer; padding:4px 6px;}
 
   /* ===== STAMPS (bigger & clearer) ===== */
   .p-title{margin-bottom:14px;}
@@ -501,6 +507,20 @@
         </div>
         <input id="adminSearch" class="admin-search" placeholder="Tìm theo tên hoặc số hộ chiếu..." oninput="renderAdmin()">
         <div id="adminList"></div>
+
+        <h3 class="sec-title">Cột mốc danh hiệu</h3>
+        <p style="font-size:12px; margin-bottom:10px;">Sửa biểu tượng, tên và mốc số sách (để trống ô "đến" nghĩa là "trở lên").</p>
+        <div id="tierEditor"></div>
+        <button class="btn ghost small" onclick="addTierRow()">+ Thêm cột mốc</button>
+
+        <h3 class="sec-title">Phần thưởng</h3>
+        <p style="font-size:12px; margin-bottom:10px;">Sửa tên và số điểm cần để đổi. Thêm/xóa tùy ý.</p>
+        <div id="rewardEditor"></div>
+        <button class="btn ghost small" onclick="addRewardRow()">+ Thêm phần thưởng</button>
+
+        <div style="margin-top:18px">
+          <button class="btn solid" onclick="saveConfig()">💾 Lưu thay đổi cho cả trường</button>
+        </div>
         <div class="leaf-nav">
           <button class="btn ghost small" onclick="go('rank')">← Xếp hạng</button>
           <span class="pg">Trang quản trị</span>
@@ -566,16 +586,21 @@ const GENRE = {
   "Sách học tập":{ic:"🎓", c:"var(--c-amber)", sub:"STUDY"},
   "Khác":{ic:"✨", c:"var(--c-rose)", sub:"OTHER"}
 };
-const TIERS = [
+const DEFAULT_TIERS = [
   {min:1,max:5,title:"Khách du lịch tập sự",ic:"🧳"},
   {min:6,max:15,title:"Nhà thám hiểm tri thức",ic:"🧭"},
-  {min:16,max:Infinity,title:"Đại sứ văn hoá đọc",ic:"🏛️"}
+  {min:16,max:999999,title:"Đại sứ văn hoá đọc",ic:"🏛️"}
 ];
-const REWARDS = [
+const DEFAULT_REWARDS = [
   {name:"Bookmark thiết kế riêng", cost:3},
   {name:"Bộ dụng cụ học tập", cost:6},
   {name:"Quyển sách em yêu thích", cost:12}
 ];
+let TIERS = JSON.parse(JSON.stringify(DEFAULT_TIERS));
+let REWARDS = JSON.parse(JSON.stringify(DEFAULT_REWARDS));
+const CONFIG_KEY="rp_config_v1";
+function loadConfig(){try{const r=localStorage.getItem(CONFIG_KEY); if(r){const c=JSON.parse(r); if(Array.isArray(c.tiers)&&c.tiers.length) TIERS=c.tiers; if(Array.isArray(c.rewards)&&c.rewards.length) REWARDS=c.rewards;}}catch(e){}}
+function persistConfig(){const cfg={tiers:TIERS, rewards:REWARDS}; try{localStorage.setItem(CONFIG_KEY,JSON.stringify(cfg));}catch(e){} if(online&&db){db.ref('config').set(cfg).catch(e=>console.warn(e));}}
 const KEY="readingPassportKids_v2";
 const ACCTS_KEY="rp_accounts_v1";   // bản sao hồ sơ trên máy (đăng nhập offline)
 const AVATAR_KEY="rp_avatars_v1";   // ảnh chân dung chỉ lưu trên máy
@@ -637,7 +662,7 @@ function go(p){
   document.querySelectorAll('.leaf').forEach(l=>l.classList.toggle('active', l.dataset.page===p));
   document.querySelectorAll('.tabs button, .bottom-nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===p));
   if(p==='profile') renderProfilePage();
-  if(p==='admin') renderAdmin();
+  if(p==='admin') { renderAdmin(); initEditors(); }
   renderStepper();
   const book=document.getElementById('book'); if(book) book.scrollIntoView({block:'nearest'});
   window.scrollTo({top:0,behavior:'smooth'});
@@ -803,7 +828,7 @@ function renderRank(){
   document.getElementById('rankCount').textContent=c+" cuốn đã hoàn thành";
   const tl=document.getElementById('tierList'); tl.innerHTML="";
   TIERS.forEach(x=>{const done=c>=x.min; const d=document.createElement('div'); d.className='tier'+(done?' done':'');
-    d.innerHTML=`<span class="tc">${x.ic}</span><span>${x.title} <span class="rng">(${x.max===Infinity?x.min+'+':x.min+'–'+x.max} cuốn)</span></span><span class="chk">${done?'☑':'☐'}</span>`;
+    d.innerHTML=`<span class="tc">${x.ic}</span><span>${x.title} <span class="rng">(${x.max>=999999?x.min+'+':x.min+'–'+x.max} cuốn)</span></span><span class="chk">${done?'☑':'☐'}</span>`;
     tl.appendChild(d);});
   renderRoster(); renderRewards();
 }
@@ -829,7 +854,7 @@ function renderRewards(){
   REWARDS.forEach(r=>{const can=pts>=r.cost; const row=document.createElement('div'); row.className='reward-row';
     row.innerHTML=`<span>${r.name} <span style="color:var(--ink-faint)">· ${r.cost} điểm</span></span>`;
     const b=document.createElement('button'); b.className='btn small '+(can?'solid':'ghost'); b.textContent=can?'Đổi':'Chưa đủ'; b.disabled=!can;
-    b.onclick=()=>{if(!can)return; state.redeemed=(state.redeemed||0)+r.cost; save(); saveRemote(); renderRewards(); alert('Đã đổi: '+r.name+'! Liên hệ thư viện để nhận quà.');};
+    b.onclick=()=>{if(!can)return; state.redeemed=(state.redeemed||0)+r.cost; save(); saveRemote(); renderRewards(); downloadCertificate(r.name); alert('🎉 Đã đổi: '+r.name+'!\nẢnh chứng nhận đã được tải về máy. Hãy đưa cho thư viện để nhận quà nhé.');};
     row.appendChild(b); w.appendChild(row);});
 }
 
@@ -868,6 +893,50 @@ function deleteProfile(no){
   renderAdmin(); renderRoster();
 }
 
+/* --- chỉnh sửa cột mốc & phần thưởng (admin) --- */
+let editTiers=[], editRewards=[];
+function initEditors(){
+  editTiers=JSON.parse(JSON.stringify(TIERS));
+  editRewards=JSON.parse(JSON.stringify(REWARDS));
+  renderTierEditor(); renderRewardEditor();
+}
+function renderTierEditor(){
+  const w=document.getElementById('tierEditor'); if(!w) return;
+  w.innerHTML=editTiers.map((t,i)=>{
+    const mx=(t.max>=999999)?'':t.max;
+    return `<div class="edit-row">
+      <input class="ed-ic" value="${esc(t.ic||'')}" maxlength="2" oninput="editTiers[${i}].ic=this.value">
+      <input class="ed-title" value="${esc(t.title||'')}" placeholder="Tên danh hiệu" oninput="editTiers[${i}].title=this.value">
+      <input class="ed-min" type="number" min="1" value="${t.min}" title="Từ (cuốn)" oninput="editTiers[${i}].min=parseInt(this.value)||1">
+      <input class="ed-max" type="number" min="1" value="${mx}" placeholder="∞" title="Đến (trống = trở lên)" oninput="editTiers[${i}].max=this.value===''?999999:(parseInt(this.value)||999999)">
+      <button class="btn-x" onclick="removeTierRow(${i})">🗑</button>
+    </div>`;
+  }).join('');
+}
+function addTierRow(){editTiers.push({ic:"🏅",title:"",min:1,max:999999}); renderTierEditor();}
+function removeTierRow(i){editTiers.splice(i,1); renderTierEditor();}
+function renderRewardEditor(){
+  const w=document.getElementById('rewardEditor'); if(!w) return;
+  w.innerHTML=editRewards.map((r,i)=>`<div class="edit-row">
+      <input class="ed-name" value="${esc(r.name||'')}" placeholder="Tên phần thưởng" oninput="editRewards[${i}].name=this.value">
+      <input class="ed-cost" type="number" min="0" value="${r.cost}" title="Số điểm" oninput="editRewards[${i}].cost=parseInt(this.value)||0">
+      <button class="btn-x" onclick="removeRewardRow(${i})">🗑</button>
+    </div>`).join('');
+}
+function addRewardRow(){editRewards.push({name:"",cost:1}); renderRewardEditor();}
+function removeRewardRow(i){editRewards.splice(i,1); renderRewardEditor();}
+function saveConfig(){
+  if(!state.isAdmin) return;
+  const tiers=editTiers.map(t=>({ic:(t.ic||'🏅').trim()||'🏅', title:(t.title||'').trim()||'Danh hiệu', min:Math.max(1,parseInt(t.min)||1), max:(t.max==null||t.max==='')?999999:Math.max(1,parseInt(t.max)||999999)})).sort((a,b)=>a.min-b.min);
+  const rewards=editRewards.map(r=>({name:(r.name||'').trim()||'Phần thưởng', cost:Math.max(0,parseInt(r.cost)||0)})).sort((a,b)=>a.cost-b.cost);
+  if(!tiers.length){alert('Cần ít nhất 1 cột mốc danh hiệu.'); return;}
+  if(!rewards.length){alert('Cần ít nhất 1 phần thưởng.'); return;}
+  TIERS=tiers; REWARDS=rewards;
+  persistConfig();
+  renderRank(); initEditors();
+  alert('✅ Đã lưu! Cột mốc & phần thưởng đã cập nhật'+(online?' cho toàn trường.':' trên máy này.'));
+}
+
 /* ---------- ONLINE (Firebase) — cấu hình điền sẵn trong FIREBASE_CONFIG ---------- */
 let online=false, db=null, remoteList=[];
 function initOnline(){
@@ -880,6 +949,7 @@ function initOnline(){
     setSync(true,'Trực tuyến');
     document.getElementById('leadNote').textContent='Bảng xếp hạng đồng bộ trực tuyến — thi đua cùng cả trường! (chỉ chia sẻ tên + số sách + danh hiệu)';
     db.ref('board').on('value', snap=>{const v=snap.val()||{}; remoteList=Object.entries(v).map(([no,d])=>({id:no,...d})); renderRoster(); if(state.isAdmin) renderAdmin();});
+    db.ref('config').on('value', snap=>{const c=snap.val(); if(c){ if(Array.isArray(c.tiers)&&c.tiers.length) TIERS=c.tiers; if(Array.isArray(c.rewards)&&c.rewards.length) REWARDS=c.rewards; try{localStorage.setItem(CONFIG_KEY,JSON.stringify({tiers:TIERS,rewards:REWARDS}));}catch(e){} renderRank(); }});
     saveRemote();
   }catch(e){console.warn(e); setSync(false,'Ngoại tuyến'); online=false;}
 }
@@ -902,10 +972,52 @@ function openGuide(){document.getElementById('guide').classList.add('show');}
 function closeGuide(){document.getElementById('guide').classList.remove('show');}
 
 /* ---------- UTIL ---------- */
+/* ---------- CHỨNG NHẬN ĐỔI QUÀ (ảnh PNG) ---------- */
+function roundRect(x,rx,ry,w,h,r){x.beginPath(); x.moveTo(rx+r,ry); x.arcTo(rx+w,ry,rx+w,ry+h,r); x.arcTo(rx+w,ry+h,rx,ry+h,r); x.arcTo(rx,ry+h,rx,ry,r); x.arcTo(rx,ry,rx+w,ry,r); x.closePath();}
+function drawSeal(x,cx,cy,r){
+  x.save(); x.strokeStyle='#BC9A5F'; x.lineWidth=3;
+  x.beginPath(); x.arc(cx,cy,r,0,Math.PI*2); x.stroke();
+  x.lineWidth=1; x.beginPath(); x.arc(cx,cy,r-7,0,Math.PI*2); x.stroke();
+  x.fillStyle='#BC9A5F'; x.textAlign='center'; x.textBaseline='middle';
+  x.font=(r*0.8)+'px "Segoe UI Emoji",Georgia'; x.fillText('📖',cx,cy+2);
+  x.textBaseline='alphabetic'; x.restore();
+}
+function downloadCertificate(rewardName){
+  const no=state.profile.no||'', name=(state.profile.name||'Độc giả'), date=today();
+  const W=1000,H=700, c=document.createElement('canvas'); c.width=W; c.height=H;
+  const x=c.getContext('2d');
+  x.fillStyle='#F6F2E9'; x.fillRect(0,0,W,H);
+  // họa tiết chéo mờ
+  x.strokeStyle='rgba(66,87,178,0.045)'; x.lineWidth=1;
+  for(let i=-H;i<W;i+=20){x.beginPath(); x.moveTo(i,0); x.lineTo(i+H,H); x.stroke();}
+  // viền
+  x.strokeStyle='#BC9A5F'; x.lineWidth=6; x.strokeRect(24,24,W-48,H-48);
+  x.lineWidth=1.5; x.strokeRect(38,38,W-76,H-76);
+  const ctr=(t,y,font,color)=>{x.font=font; x.fillStyle=color; x.textAlign='center'; x.fillText(t,W/2,y);};
+  ctr('CỘNG HOÀ VĂN HOÁ ĐỌC',92,'bold 20px Georgia','#B08828');
+  drawSeal(x,W/2,168,46);
+  ctr('CHỨNG NHẬN ĐỔI QUÀ',272,'bold 52px Georgia','#17285A');
+  ctr('Reward Certificate',302,'italic 22px Georgia','#8E6E38');
+  ctr('Trân trọng chứng nhận độc giả',358,'22px "Segoe UI",Arial','#5E6577');
+  ctr(name.toUpperCase(),406,'bold 40px Georgia','#22304F');
+  ctr('đã tích lũy điểm đọc sách và đổi thành công phần thưởng:',452,'20px "Segoe UI",Arial','#5E6577');
+  // ô phần quà
+  roundRect(x,W/2-270,478,540,48,12); x.fillStyle='rgba(188,154,95,0.16)'; x.fill(); x.strokeStyle='#BC9A5F'; x.lineWidth=1.5; x.stroke();
+  ctr('🎁  '+rewardName,510,'bold 30px Georgia','#7A2E3B');
+  // số hộ chiếu + ngày
+  ctr('Số hộ chiếu: '+no+'        Ngày: '+date,578,'bold 22px "Courier New",monospace','#17285A');
+  ctr('— Thư viện nhà trường —',640,'italic 20px Georgia','#5E6577');
+  const a=document.createElement('a');
+  const slug=(rewardName||'qua').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/[^a-zA-Z0-9]+/g,'-').toLowerCase();
+  a.download='chung-nhan-'+(no||'hochieu')+'-'+slug+'.png';
+  a.href=c.toDataURL('image/png'); a.click();
+}
+
 function esc(s){return (s||"").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function renderAll(){renderProgress(); renderStamps(); renderLog(); renderRank();}
 
 /* ---------- INIT ---------- */
+loadConfig();
 renderProfilePage(); gateTab('login'); initStars(); pickIconRefresh(); renderStepper(); applyAdminUI();
 applyLayout();
 renderAll();
