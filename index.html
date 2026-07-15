@@ -604,6 +604,7 @@ const KEY="readingPassportKids_v2";
 const ACCTS_KEY="rp_accounts_v1";   // bản sao hồ sơ trên máy (đăng nhập offline)
 const AVATAR_KEY="rp_avatars_v1";   // ảnh chân dung chỉ lưu trên máy
 let state=load();
+state.isAdmin=false;   // luôn yêu cầu nhập mật khẩu quản trị mỗi lần mở app
 function load(){
   try{const r=localStorage.getItem(KEY); if(r) return JSON.parse(r);}catch(e){}
   return {uid:uid(), loggedIn:false, isAdmin:false, profile:{name:"",avatar:"",no:"",date:"",goal:12,icon:"★"}, books:[], redeemed:0};
