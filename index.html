@@ -239,6 +239,21 @@
   .roster-item.other{background:var(--paper);}
   .roster-item .rk{font-family:var(--mrz); color:var(--ink-faint); margin-right:9px; min-width:28px; display:inline-block;}
   .roster-item .medal{margin-left:6px;}
+  .ros-right{display:flex; align-items:center; gap:10px;}
+  .ros-count{white-space:nowrap;}
+  .btn-view{border:1px solid var(--line); background:#fff; color:var(--navy); border-radius:7px; padding:5px 10px; font-size:11.5px; font-weight:600; cursor:pointer; white-space:nowrap;}
+  .btn-view:hover{background:var(--navy); color:var(--gold-light); border-color:var(--navy);}
+  .view-head{display:flex; gap:14px; align-items:center; padding-bottom:14px; border-bottom:1px solid var(--line); margin-bottom:14px;}
+  .view-head .vh-seal{width:54px; height:54px; flex-shrink:0;}
+  .view-head h3{font-size:20px;}
+  .view-head .vh-meta{font-family:var(--mrz); font-size:11.5px; color:var(--ink-soft); margin-top:3px;}
+  .view-stamps{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px;}
+  .vs{border:2px solid var(--sc); border-radius:11px; padding:10px 6px; text-align:center; background:var(--paper);}
+  .vs .vb{width:44px; height:44px; margin:0 auto 6px; border-radius:50%; background:var(--sc); color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px;}
+  .vs .vn{font-size:11px; font-weight:700; color:var(--ink); line-height:1.2;}
+  .view-book{border-left:3px solid var(--sc,var(--gold)); background:var(--paper); border:1px solid var(--line); border-radius:0 9px 9px 0; padding:9px 12px; margin-bottom:7px;}
+  .view-book b{font-size:14px; color:var(--ink);}
+  .view-book .vbm{font-size:11.5px; color:var(--ink-soft); margin-top:2px;}
   .reward-row{display:flex; justify-content:space-between; align-items:center; padding:11px 13px; border-radius:11px; background:var(--paper); border:1px solid var(--line); margin-bottom:8px; font-size:13.5px;}
 
   /* buttons */
@@ -384,6 +399,7 @@
               <div class="fld">
                 <label>Số hộ chiếu (dùng để đăng nhập lần sau)</label>
                 <div class="static" id="pNo">—</div>
+                <p style="font-size:11.5px; color:var(--c-coral); margin-top:4px;">🔒 Giữ bí mật số này — ai biết cũng có thể đăng nhập vào hồ sơ của bạn.</p>
                 <button class="btn ghost small" style="margin-top:8px" onclick="copyNo()">📋 Sao chép số</button>
               </div>
               <div class="fld">
@@ -839,14 +855,17 @@ function renderRoster(){
   const w=document.getElementById('rosterList');
   let list;
   if(online && remoteList.length){
-    list=remoteList.filter(r=>withinPeriod(r.updated)).map(r=>({name:r.name||"Ẩn danh", count:r.count||0, me:r.id===state.profile.no}));
-    if(state.loggedIn && !list.some(r=>r.me)) list.push({name:(state.profile.name||"Bạn")+" (bạn)", count:state.books.length, me:true});
+    list=remoteList.filter(r=>withinPeriod(r.updated)).map(r=>({no:r.id, name:r.name||"Ẩn danh", count:r.count||0, me:r.id===state.profile.no}));
+    if(state.loggedIn && !list.some(r=>r.me)) list.push({no:state.profile.no, name:(state.profile.name||"Bạn")+" (bạn)", count:state.books.length, me:true});
   }else{
-    list = state.loggedIn ? [{name:(state.profile.name||"Bạn")+" (bạn)", count:state.books.length, me:true}] : [];
+    list = state.loggedIn ? [{no:state.profile.no, name:(state.profile.name||"Bạn")+" (bạn)", count:state.books.length, me:true}] : [];
   }
   list.sort((a,b)=>b.count-a.count);
   const medals=['🥇','🥈','🥉'];
-  w.innerHTML=list.slice(0,50).map((r,i)=>`<div class="roster-item ${r.me?'me':'other'}"><span><span class="rk">#${i+1}</span>${esc(r.name)}${medals[i]?'<span class="medal">'+medals[i]+'</span>':''}</span><span>${r.count} cuốn</span></div>`).join('') || '<div class="list-empty">Chưa có dữ liệu.</div>';
+  w.innerHTML=list.slice(0,50).map((r,i)=>`<div class="roster-item ${r.me?'me':'other'}">
+      <span><span class="rk">#${i+1}</span>${esc(r.name)}${medals[i]?'<span class="medal">'+medals[i]+'</span>':''}</span>
+      <span class="ros-right"><span class="ros-count">${r.count} cuốn</span><button class="btn-view" onclick="viewPassport('${esc(r.no||'')}')">👁 Xem hồ sơ</button></span>
+    </div>`).join('') || '<div class="list-empty">Chưa có dữ liệu.</div>';
 }
 function renderRewards(){
   const w=document.getElementById('rewardsList'); const pts=state.books.length-(state.redeemed||0);
@@ -980,6 +999,38 @@ function openGuide(){document.getElementById('guide').classList.add('show');}
 function closeGuide(){document.getElementById('guide').classList.remove('show');}
 
 /* ---------- UTIL ---------- */
+/* ---------- XEM HỒ SƠ BẠN KHÁC ---------- */
+function closeView(){document.getElementById('viewModal').classList.remove('show');}
+function viewPassport(no){
+  if(!no){alert('Không tìm thấy số hộ chiếu của bạn này.'); return;}
+  const modal=document.getElementById('viewModal');
+  modal.classList.add('show');
+  document.getElementById('viewBody').innerHTML='<div class="list-empty">Đang tải hồ sơ...</div>';
+  if(no===state.profile.no && state.loggedIn){ renderView(no,{profile:{name:state.profile.name,date:state.profile.date}, books:state.books}); return; }
+  const useLocal=()=>{ const loc=getAccountLocal(no); if(loc) renderView(no,loc); else document.getElementById('viewBody').innerHTML='<div class="list-empty">Không tải được hồ sơ này.</div>'; };
+  if(online && db){ db.ref('accounts/'+no).once('value').then(s=>{ s.exists()? renderView(no,s.val()) : useLocal(); }).catch(useLocal); }
+  else useLocal();
+}
+function renderView(no,data){
+  const p=data.profile||{}, books=data.books||[];
+  const tier=(TIERS.find(t=>books.length>=t.min&&books.length<=t.max)||TIERS[0]);
+  const stamps=books.slice().reverse().map(b=>{const g=GENRE[b.genre]||GENRE["Khác"];
+    return `<div class="vs" style="--sc:${g.c}"><div class="vb">${g.ic}</div><div class="vn">${esc(b.genre)}</div></div>`;}).join('');
+  const list=books.slice().reverse().map(b=>{const g=GENRE[b.genre]||GENRE["Khác"]; const ic=b.icon||"★";
+    return `<div class="view-book" style="--sc:${g.c}"><b>${esc(b.title)}</b><div class="vbm">${esc(b.author||"—")} · ${esc(b.genre)} · ${showDate(b.end)}</div><div style="font-size:12px;margin-top:3px">${ic.repeat(b.rating||0)}</div></div>`;}).join('');
+  document.getElementById('viewBody').innerHTML=`
+    <div class="view-head">
+      <svg class="vh-seal" viewBox="0 0 100 100">${sealSVG('view')}</svg>
+      <div><h3>${esc(p.name||'Độc giả')}</h3>
+        <div class="vh-meta">Cấp ngày ${esc(p.date||'—')}</div>
+        <div class="vh-meta">${tier.ic} ${esc(tier.title)} · ${books.length} cuốn</div></div>
+    </div>
+    <div class="eyebrow" style="margin-bottom:8px">Sổ thị thực</div>
+    ${stamps? '<div class="view-stamps">'+stamps+'</div>' : '<div class="list-empty">Chưa có con dấu nào.</div>'}
+    <div class="eyebrow" style="margin-bottom:8px">Nhật ký hành trình</div>
+    ${list || '<div class="list-empty">Chưa có sách nào được ghi lại.</div>'}`;
+}
+
 /* ---------- CHỨNG NHẬN ĐỔI QUÀ (ảnh PNG) ---------- */
 function roundRect(x,rx,ry,w,h,r){x.beginPath(); x.moveTo(rx+r,ry); x.arcTo(rx+w,ry,rx+w,ry+h,r); x.arcTo(rx+w,ry+h,rx,ry+h,r); x.arcTo(rx,ry+h,rx,ry,r); x.arcTo(rx,ry,rx+w,ry,r); x.closePath();}
 function drawSeal(x,cx,cy,r){
@@ -1045,7 +1096,15 @@ applyLayout();
 renderAll();
 go('cover');
 initOnline();
-</script>  <!-- HƯỚNG DẪN SỬ DỤNG -->
+</script>  <!-- XEM HỒ SƠ BẠN KHÁC -->
+  <div class="guide-modal" id="viewModal" onclick="if(event.target===this)closeView()">
+    <div class="guide-card">
+      <button class="guide-close" onclick="closeView()">✕</button>
+      <div id="viewBody"><div class="list-empty">Đang tải...</div></div>
+    </div>
+  </div>
+
+  <!-- HƯỚNG DẪN SỬ DỤNG -->
   <div class="guide-modal" id="guide" onclick="if(event.target===this)closeGuide()">
     <div class="guide-card">
       <button class="guide-close" onclick="closeGuide()">✕</button>
